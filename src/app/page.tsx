@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { Plus, Loader2, Info, Edit2, Check, X, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
 
-export default function Home() {
+function DashboardContent() {
   const [holdings, setHoldings] = useState<any[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
 
@@ -308,8 +308,8 @@ export default function Home() {
                 key={range}
                 onClick={() => setChartRange(range)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${chartRange === range
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   }`}
               >
                 {range}
@@ -619,5 +619,18 @@ export default function Home() {
         </table>
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-muted-foreground font-medium">Loading Dashboard...</p>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
