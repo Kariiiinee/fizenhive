@@ -178,7 +178,7 @@ async function generateOutput(scoredData: any, language: string) {
         console.log('[Insights] ALL env keys found:', allKeys);
 
         if (!apiKey) {
-            throw new Error(`GEMINI_API_KEY not set. Found ${allKeys.length} total keys. Related: ${relatedKeys.join(', ') || 'none'}. First 5 keys: ${allKeys.slice(0, 5).join(', ')}`);
+            throw new Error(`GEMINI_API_KEY not set. Found ${allKeys.length} total keys. FULL KEY LIST: ${allKeys.join(', ')}`);
         }
 
         const prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
