@@ -23,7 +23,7 @@ export async function GET() {
     // Attempt a minimal Gemini API call
     try {
         const genAI = new GoogleGenerativeAI(key);
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
         const result = await model.generateContent('Say "OK" in one word.');
         keyInfo.gemini_test = result.response.text().trim();
     } catch (err: any) {
