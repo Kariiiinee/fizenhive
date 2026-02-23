@@ -213,11 +213,11 @@ Respond ONLY with valid JSON in this exact format, without markdown wrapping:
             takeaway: aiResponse.takeaway,
             context: aiResponse.context
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Gemini AI generation failed:', error);
         return {
             ...scoredData,
-            takeaway: "AI Analysis currently unavailable due to API limits or errors. Please review the raw metrics.",
+            takeaway: `DEBUG ERROR: ${error?.message || String(error)}`,
             context: "Please evaluate the metrics independently."
         };
     }
