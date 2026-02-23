@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export const maxDuration = 30;
 import YahooFinance from 'yahoo-finance2';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
@@ -171,10 +171,9 @@ async function generateOutput(scoredData: any, language: string) {
     try {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not set');
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+        const ai = new GoogleGenAI({ apiKey });
 
-        let prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
+        const prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
 
 Data:
 - Price: $${scoredData.company_info.price}
@@ -198,8 +197,11 @@ Respond ONLY with valid JSON in this exact format, without markdown wrapping:
   "context": "Your context here..."
 }`;
 
-        const result = await model.generateContent(prompt);
-        const text = result.response.text().trim();
+        const result = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+        const text = (result.text ?? '').trim();
 
         // Attempt to parse JSON response
         let aiResponse = { takeaway: "AI Analysis unavailable.", context: "Context unavailable." };

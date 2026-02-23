@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,10 +22,12 @@ export async function GET() {
 
     // Attempt a minimal Gemini API call
     try {
-        const genAI = new GoogleGenerativeAI(key);
-        const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
-        const result = await model.generateContent('Say "OK" in one word.');
-        keyInfo.gemini_test = result.response.text().trim();
+        const genAI = new GoogleGenAI({ apiKey: key });
+        const result = await genAI.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: 'Say "OK" in one word.',
+        });
+        keyInfo.gemini_test = (result.text ?? '').trim();
     } catch (err: any) {
         keyInfo.gemini_test = 'FAILED';
         keyInfo.gemini_error = err?.message || String(err);

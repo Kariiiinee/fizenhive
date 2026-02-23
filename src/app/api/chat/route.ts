@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const maxDuration = 30;
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import yahooFinance from 'yahoo-finance2';
 
 
@@ -67,36 +67,34 @@ If needed, ask me follow-up questions about my budget, timeline, location, or ri
 
 
             `;
-        // Initialize Gemini model
+        // Initialize new Gemini SDK
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) return NextResponse.json({ error: 'GEMINI_API_KEY not set' }, { status: 500 });
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-            model: 'gemini-3-flash-preview',
-            systemInstruction: {
-                role: 'system',
-                parts: [{ text: systemPrompt }]
-            }
-        });
+        const ai = new GoogleGenAI({ apiKey });
 
-        // Map messages to Gemini format
-        let chatHistory = messages.slice(0, -1).map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content }]
-        }));
+        // Build contents array: system instruction + history + latest message
+        const contents: any[] = [
+            // Prepend system role as first user turn (new SDK uses contents array)
+            ...messages.slice(0, -1).map((msg: any) => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.content }]
+            })),
+            { role: 'user', parts: [{ text: latestUserMsg?.content || '' }] }
+        ];
 
-        // Gemini API strictly requires that history starts with a 'user' message
-        if (chatHistory.length > 0 && chatHistory[0].role === 'model') {
-            chatHistory.shift(); // Remove the initial assistant greeting
+        // Ensure history starts with 'user'
+        while (contents.length > 1 && contents[0].role !== 'user') {
+            contents.shift();
         }
 
-        const chat = model.startChat({
-            history: chatHistory,
+        const result = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents,
+            config: {
+                systemInstruction: systemPrompt,
+            }
         });
-
-        // Send the latest message
-        const result = await chat.sendMessage(latestUserMsg?.content || "");
-        const responseText = result.response.text();
+        const responseText = result.text ?? '';
 
         return NextResponse.json({
             role: 'assistant',
