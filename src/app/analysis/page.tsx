@@ -95,18 +95,22 @@ function AnalysisContent() {
 
     const fetchInsightsData = async (symbol: string) => {
         setLoadingInsights(true);
+        setError(""); // Clear any previous errors
         try {
             const res = await fetch('/api/finance/insights', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ticker: symbol, language: 'en' })
             });
+            const data = await res.json();
             if (res.ok) {
-                const data = await res.json();
                 setInsightsData(data);
+            } else {
+                setError(data.error || "Failed to generate AI insights.");
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to fetch insights", err);
+            setError("Network error or timeout while generating insights.");
         } finally {
             setLoadingInsights(false);
         }

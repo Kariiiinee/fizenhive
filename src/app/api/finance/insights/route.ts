@@ -170,10 +170,12 @@ function scoreCompany(metrics: any) {
 async function generateOutput(scoredData: any, language: string, urlParamApiKey?: string) {
     try {
         const apiKey = urlParamApiKey || process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+        const keySource = urlParamApiKey ? 'urlParam' : process.env.GEMINI_API_KEY ? 'GEMINI_API_KEY' : process.env.fizenhive_GEMINI_API_KEY ? 'fizenhive_GEMINI_API_KEY' : process.env.GOOGLE_API_KEY ? 'GOOGLE_API_KEY' : 'none';
+
         const allKeys = Object.keys(process.env);
         const relatedKeys = allKeys.filter(k => k.includes('GEMINI') || k.includes('GOOGLE') || k.includes('KEY'));
 
-        console.log('[Insights] Runtime Check - apiKey found:', !!apiKey, 'length:', apiKey?.length ?? 0);
+        console.log(`[Insights] Runtime Check - apiKey found from ${keySource}. length:`, apiKey?.length ?? 0);
         console.log('[Insights] Related env keys found:', relatedKeys);
 
         if (!apiKey) {
