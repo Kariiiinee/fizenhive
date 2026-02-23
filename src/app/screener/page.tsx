@@ -76,7 +76,7 @@ export default function ScreenerPage() {
     }, [activeRegion, activeFilter, activeSector]);
 
     return (
-        <div className="p-4 pb-20 space-y-6 relative">
+        <div className="pt-20 p-4 pb-20 space-y-6 relative">
             <header className="flex justify-between items-start py-2 relative">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Screener</h1>

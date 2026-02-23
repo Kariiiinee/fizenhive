@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { ArrowUpRight, ArrowDownRight, Search, Loader2, Bot, ShieldAlert, Sparkles, TrendingUp, AlertTriangle, Bookmark, BookmarkCheck, Info } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Search, Loader2, Bot, ShieldAlert, Sparkles, TrendingUp, AlertTriangle, Bookmark, BookmarkCheck, Info, Download, FileText } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
@@ -186,10 +186,65 @@ function AnalysisContent() {
         setShowDropdown(false);
     };
 
+    const downloadAnalysisAsCSV = () => {
+        if (!stockData) return;
+
+        const headers = ["Metric", "Value"];
+        const rows = [
+            ["Symbol", stockData.symbol],
+            ["Name", stockData.shortName || stockData.longName || ""],
+            ["Current Price", stockData.regularMarketPrice || "N/A"],
+            ["Market Cap", stockData.marketCap || "N/A"],
+            ["P/E Ratio", stockData.trailingPE || "N/A"],
+            ["Revenue Growth", stockData.summary?.financialData?.revenueGrowth || "N/A"],
+            ["Profit Margin", stockData.summary?.financialData?.profitMargins || "N/A"],
+            ["Debt-to-Equity", stockData.summary?.financialData?.debtToEquity || "N/A"],
+            ["Dividend Yield", stockData.summary?.summaryDetail?.dividendYield || stockData.dividendYield || "N/A"],
+            ["52-Week Change", stockData.fiftyTwoWeekChangePercent || stockData.summary?.defaultKeyStatistics?.['52WeekChange'] || "N/A"],
+            ["Volume", stockData.regularMarketVolume || "N/A"],
+        ];
+
+        if (insightsData) {
+            rows.push(["---", "---"]);
+            rows.push(["AI Intrinsic Value", insightsData.intrinsic_value?.final || "N/A"]);
+            rows.push(["Margin of Safety", insightsData.margin_of_safety ? `${insightsData.margin_of_safety}%` : "N/A"]);
+            rows.push(["Quality Score", insightsData.quality_score ? `${insightsData.quality_score}/5` : "N/A"]);
+
+            const takeawayStr = typeof insightsData.takeaway === 'string' ? insightsData.takeaway : "";
+            rows.push(["Takeaway", takeawayStr ? `"${takeawayStr.replace(/"/g, '""')}"` : "N/A"]);
+        }
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const filename = `FizenHive_Analysis_${stockData.symbol}_${new Date().toISOString().split('T')[0]}.csv`;
+
+
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.target = "_blank"; // Helps Safari
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+    };
+
+    const downloadAnalysisAsPDF = () => {
+        window.print();
+    };
+
     return (
-        <div className="p-4 pb-20 space-y-6 relative">
+        <div className="pt-20 p-4 pb-20 space-y-6 relative print:p-0 print:m-0 print:max-w-none print:w-full print:block print:space-y-4">
             {/* Search Bar */}
-            <form onSubmit={handleSearchSubmit} className="relative mt-2 z-50">
+            <form onSubmit={handleSearchSubmit} className="relative mt-2 z-50 print-hidden">
                 <input
                     type="text"
                     value={inputValue}
@@ -507,6 +562,25 @@ function AnalysisContent() {
                             ))}
                         </div>
                     </section>
+
+                    {/* Export Action Bar */}
+                    <div className="flex flex-col sm:flex-row justify-end items-center gap-3 pt-6 pb-2 print-hidden border-t border-border mt-8">
+                        <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); downloadAnalysisAsCSV(); }}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-all shadow-sm"
+                        >
+                            <Download className="w-4 h-4" /> Download CSV
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); downloadAnalysisAsPDF(); }}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md active:scale-95"
+                        >
+                            <FileText className="w-4 h-4" /> Export as PDF
+                        </button>
+                    </div>
                 </>
             ) : null}
         </div>

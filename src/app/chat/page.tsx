@@ -69,15 +69,15 @@ export default function ChatPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)] p-4 space-y-4">
-            <header className="flex items-center gap-2 py-2 shrink-0">
+        <div className="flex flex-col h-[calc(100vh-4rem)] pt-20 p-4 space-y-4">
+            <header className="flex items-center gap-2 py-1 shrink-0">
                 <div className="relative">
-                    <Bot className="w-8 h-8 text-primary" />
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-primary rounded-full border-2 border-background"></span>
+                    <Bot className="w-6 h-6 text-primary" />
+                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-primary rounded-full border-2 border-background"></span>
                 </div>
                 <div>
-                    <h1 className="text-xl font-bold tracking-tight">FizenHive AI</h1>
-                    <p className="text-xs text-muted-foreground font-medium">Online</p>
+                    <h2 className="text-base font-semibold tracking-tight leading-none">FizenHive AI</h2>
+                    <p className="text-[11px] text-muted-foreground font-medium mt-1">Online</p>
                 </div>
             </header>
 

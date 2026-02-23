@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Bookmark, ArrowRight, ShieldAlert, TrendingUp, Sparkles, Trash2, ShieldCheck, BookmarkX, Calendar, X, Bot, AlertTriangle } from "lucide-react";
+import { Bookmark, ArrowRight, ShieldAlert, TrendingUp, Sparkles, Trash2, ShieldCheck, BookmarkX, Calendar, X, Bot, AlertTriangle, Download, FileText } from "lucide-react";
 import { format } from "date-fns";
 
 export default function MyAnalysisPage() {
@@ -65,16 +65,99 @@ export default function MyAnalysisPage() {
         return acc;
     }, {} as Record<string, any[]>);
 
+    const downloadAllAsCSV = () => {
+        if (!savedAnalyses || savedAnalyses.length === 0) return;
+
+        const headers = ["Ticker", "Name", "Date Saved", "Price", "Intrinsic Value", "Margin of Safety", "Quality Score", "Takeaway", "Context", "Risks"];
+
+        const rows = savedAnalyses.map(analysis => {
+            const dateStr = analysis.timestamp ? format(new Date(analysis.timestamp), "yyyy-MM-dd HH:mm") : "N/A";
+            const price = analysis.insightsData?.company_info?.price?.toFixed(2) || "N/A";
+            const intrinsicValue = analysis.insightsData?.intrinsic_value?.final > 0 ? analysis.insightsData.intrinsic_value.final.toFixed(2) : "N/A";
+            const mos = analysis.insightsData?.margin_of_safety ? `${analysis.insightsData.margin_of_safety.toFixed(0)}%` : "N/A";
+            const quality = analysis.insightsData?.quality_score ? `${analysis.insightsData.quality_score}/5` : "N/A";
+            const takeawayStr = typeof analysis.insightsData?.takeaway === 'string' ? analysis.insightsData.takeaway : "";
+            const takeaway = takeawayStr ? `"${takeawayStr.replace(/"/g, '""')}"` : "N/A";
+
+            const contextStr = typeof analysis.insightsData?.context === 'string' ? analysis.insightsData.context : "";
+            const context = contextStr ? `"${contextStr.replace(/"/g, '""')}"` : "N/A";
+
+            const risksArray = Array.isArray(analysis.insightsData?.risk_flags) ? analysis.insightsData.risk_flags : [];
+            const risks = risksArray.length > 0 ? `"${risksArray.join("; ").replace(/"/g, '""')}"` : "None";
+
+            return [
+                analysis.ticker,
+                `"${analysis.name || ""}"`,
+                dateStr,
+                price,
+                intrinsicValue,
+                mos,
+                quality,
+                takeaway,
+                context,
+                risks
+            ];
+        });
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const filename = `FizenHive_MyAnalysis_${new Date().toISOString().split('T')[0]}.csv`;
+
+
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.target = "_blank";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+    };
+
+    const downloadAsPDF = () => {
+        window.print();
+    };
+
     return (
-        <div className="p-4 pb-24 space-y-6">
+        <div className="pt-20 p-4 pb-24 space-y-6 print:p-0 print:m-0 print:max-w-none print:w-full print:block">
             <header className="pt-2">
-                <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                    <Bookmark className="w-8 h-8 text-primary" />
-                    My Analysis
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Your collection of saved AI value investments and insights.
-                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                            <Bookmark className="w-8 h-8 text-primary" />
+                            My Analysis
+                        </h1>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Your collection of saved AI value investments and insights.
+                        </p>
+                    </div>
+                    {savedAnalyses.length > 0 && (
+                        <div className="flex items-center gap-2 print-hidden">
+                            <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); downloadAllAsCSV(); }}
+                                className="flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-all shadow-sm"
+                            >
+                                <Download className="w-3.5 h-3.5" /> CSV
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); downloadAsPDF(); }}
+                                className="flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md active:scale-95"
+                            >
+                                <FileText className="w-3.5 h-3.5" /> PDF
+                            </button>
+                        </div>
+                    )}
+                </div>
             </header>
 
             {savedAnalyses.length === 0 ? (
@@ -174,6 +257,20 @@ export default function MyAnalysisPage() {
                                                                 <p className="text-[9px] text-muted-foreground">/5</p>
                                                             </div>
                                                         </div>
+                                                    </div>
+                                                    {/* Print / PDF Only - Full AI Details */}
+                                                    <div className="hidden print:block mt-4 space-y-2 border-t border-border/50 pt-3">
+                                                        <div className="text-[10px] text-foreground/90">
+                                                            <span className="font-semibold text-primary">Takeaway:</span> {analysis.insightsData.takeaway}
+                                                        </div>
+                                                        <div className="text-[10px] text-foreground/90">
+                                                            <span className="font-semibold text-muted-foreground">Context:</span> {analysis.insightsData.context}
+                                                        </div>
+                                                        {analysis.insightsData.risk_flags && analysis.insightsData.risk_flags.length > 0 && (
+                                                            <div className="text-[10px] text-destructive/90">
+                                                                <span className="font-semibold text-destructive">Risks:</span> {analysis.insightsData.risk_flags.join("; ")}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ) : (

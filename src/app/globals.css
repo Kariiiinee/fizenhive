@@ -126,3 +126,48 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+
+  :root,
+  .dark,
+  html,
+  body {
+    --background: oklch(1 0 0) !important;
+    --foreground: oklch(0.145 0 0) !important;
+    --card: oklch(1 0 0) !important;
+    --card-foreground: oklch(0.145 0 0) !important;
+    --popover: oklch(1 0 0) !important;
+    --popover-foreground: oklch(0.145 0 0) !important;
+    --primary: #11d452 !important;
+    --primary-foreground: oklch(1 0 0) !important;
+    --secondary: oklch(0.96 0.02 145) !important;
+    --secondary-foreground: oklch(0.2 0.1 145) !important;
+    --muted: oklch(0.96 0.01 145) !important;
+    --muted-foreground: oklch(0.5 0.02 145) !important;
+    --accent: oklch(0.96 0.02 145) !important;
+    --accent-foreground: oklch(0.2 0.05 145) !important;
+    --destructive: oklch(0.6 0.2 20) !important;
+    --border: oklch(0.92 0.01 145) !important;
+    --input: oklch(0.92 0.01 145) !important;
+    --ring: #11d452 !important;
+    --sidebar: oklch(1 0 0) !important;
+    --sidebar-foreground: oklch(0.145 0 0) !important;
+    --sidebar-primary: #11d452 !important;
+    --sidebar-primary-foreground: oklch(1 0 0) !important;
+    --sidebar-accent: oklch(0.96 0.02 145) !important;
+    --sidebar-accent-foreground: oklch(0.2 0.05 145) !important;
+    --sidebar-border: oklch(0.92 0.01 145) !important;
+    --sidebar-ring: #11d452 !important;
+    background-color: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Force optimum landscape layout */
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+}
