@@ -167,19 +167,12 @@ function scoreCompany(metrics: any) {
 }
 
 // 4. Generate Output (Gemini via REST)
-async function generateOutput(scoredData: any, language: string, urlParamApiKey?: string) {
+async function generateOutput(scoredData: any, language: string) {
     try {
-        const apiKey = urlParamApiKey || process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-        const keySource = urlParamApiKey ? 'urlParam' : process.env.GEMINI_API_KEY ? 'GEMINI_API_KEY' : process.env.fizenhive_GEMINI_API_KEY ? 'fizenhive_GEMINI_API_KEY' : process.env.GOOGLE_API_KEY ? 'GOOGLE_API_KEY' : 'none';
-
-        const allKeys = Object.keys(process.env);
-        const relatedKeys = allKeys.filter(k => k.includes('GEMINI') || k.includes('GOOGLE') || k.includes('KEY'));
-
-        console.log(`[Insights] Runtime Check - apiKey found from ${keySource}. length:`, apiKey?.length ?? 0);
-        console.log('[Insights] Related env keys found:', relatedKeys);
+        const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY;
 
         if (!apiKey) {
-            throw new Error(`API KEY not set. Checked for GEMINI_API_KEY, fizenhive_GEMINI_API_KEY, and GOOGLE_API_KEY. Related keys visible: ${relatedKeys.join(', ') || 'none'}`);
+            throw new Error(`AI API KEY not configured.`);
         }
 
         const prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
@@ -245,7 +238,7 @@ Respond ONLY with valid JSON in this exact format, without markdown wrapping:
         console.error('Gemini AI generation failed:', error);
         return {
             ...scoredData,
-            takeaway: `DEBUG ERROR: ${error?.message || String(error)}`,
+            takeaway: "AI Analysis is currently unavailable.",
             context: "Please evaluate the metrics independently."
         };
     }
@@ -255,8 +248,8 @@ export async function POST(request: Request) {
     try {
         const body: InsightsQuery = await request.json();
         // Initialize direct REST call to Gemini
-        const apiKey = process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-        if (!apiKey) return NextResponse.json({ error: 'AI API KEY not set in environment' }, { status: 500 });
+        const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY;
+        if (!apiKey) return NextResponse.json({ error: 'AI API KEY not configured' }, { status: 500 });
 
         if (!body.ticker) {
             return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });

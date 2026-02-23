@@ -68,11 +68,8 @@ If needed, ask me follow-up questions about my budget, timeline, location, or ri
 
             `;
         // Initialize direct REST call to Gemini
-        const apiKey = process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-        const keySource = process.env.GEMINI_API_KEY ? 'GEMINI_API_KEY' : process.env.fizenhive_GEMINI_API_KEY ? 'fizenhive_GEMINI_API_KEY' : process.env.GOOGLE_API_KEY ? 'GOOGLE_API_KEY' : 'none';
-        console.log(`[Chat] apiKey found from ${keySource}. length:`, apiKey?.length ?? 0);
-
-        if (!apiKey) return NextResponse.json({ error: 'AI API KEY not set' }, { status: 500 });
+        const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY;
+        if (!apiKey) return NextResponse.json({ error: 'AI API KEY not configured' }, { status: 500 });
 
         // Build contents array: history + latest message (Gemini REST format)
         const contents = [
