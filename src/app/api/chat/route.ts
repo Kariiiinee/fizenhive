@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+
+export const maxDuration = 30;
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import yahooFinance from 'yahoo-finance2';
 
@@ -68,7 +70,7 @@ If needed, ask me follow-up questions about my budget, timeline, location, or ri
             `;
         // Initialize Gemini model
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.0-flash',
             systemInstruction: {
                 role: 'system',
                 parts: [{ text: systemPrompt }]

@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+
+export const maxDuration = 30;
 import YahooFinance from 'yahoo-finance2';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -168,7 +170,7 @@ function scoreCompany(metrics: any) {
 // 4. Generate Output (Gemini)
 async function generateOutput(scoredData: any, language: string) {
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
         let prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
 
