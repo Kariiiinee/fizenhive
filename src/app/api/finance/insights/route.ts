@@ -169,7 +169,7 @@ function scoreCompany(metrics: any) {
 // 4. Generate Output (Gemini via REST)
 async function generateOutput(scoredData: any, language: string) {
     try {
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY;
         const allKeys = Object.keys(process.env);
         const relatedKeys = allKeys.filter(k => k.includes('GEMINI') || k.includes('KEY'));
 
@@ -254,6 +254,9 @@ Respond ONLY with valid JSON in this exact format, without markdown wrapping:
 export async function POST(request: Request) {
     try {
         const body: InsightsQuery = await request.json();
+        // Initialize direct REST call to Gemini
+        const apiKey = process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY;
+        if (!apiKey) return NextResponse.json({ error: 'GEMINI_API_KEY not set' }, { status: 500 });
 
         if (!body.ticker) {
             return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });

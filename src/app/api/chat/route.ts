@@ -68,7 +68,7 @@ If needed, ask me follow-up questions about my budget, timeline, location, or ri
 
             `;
         // Initialize direct REST call to Gemini
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY;
         if (!apiKey) return NextResponse.json({ error: 'GEMINI_API_KEY not set' }, { status: 500 });
 
         // Build contents array: history + latest message (Gemini REST format)
