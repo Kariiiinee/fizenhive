@@ -4,7 +4,6 @@ export const maxDuration = 30;
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import yahooFinance from 'yahoo-finance2';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // Helper to fetch live data if a ticker is detected
 async function fetchTickerContext(query: string) {
@@ -69,6 +68,9 @@ If needed, ask me follow-up questions about my budget, timeline, location, or ri
 
             `;
         // Initialize Gemini model
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) return NextResponse.json({ error: 'GEMINI_API_KEY not set' }, { status: 500 });
+        const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
             model: 'gemini-3-flash-preview',
             systemInstruction: {

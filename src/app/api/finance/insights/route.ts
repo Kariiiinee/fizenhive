@@ -5,7 +5,6 @@ import YahooFinance from 'yahoo-finance2';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 interface InsightsQuery {
     ticker: string;
@@ -170,6 +169,9 @@ function scoreCompany(metrics: any) {
 // 4. Generate Output (Gemini)
 async function generateOutput(scoredData: any, language: string) {
     try {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not set');
+        const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
         let prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
