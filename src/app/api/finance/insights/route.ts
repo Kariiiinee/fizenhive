@@ -167,18 +167,17 @@ function scoreCompany(metrics: any) {
 }
 
 // 4. Generate Output (Gemini via REST)
-async function generateOutput(scoredData: any, language: string) {
+async function generateOutput(scoredData: any, language: string, urlParamApiKey?: string) {
     try {
-        const apiKey = process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY;
+        const apiKey = urlParamApiKey || process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
         const allKeys = Object.keys(process.env);
-        const relatedKeys = allKeys.filter(k => k.includes('GEMINI') || k.includes('KEY'));
+        const relatedKeys = allKeys.filter(k => k.includes('GEMINI') || k.includes('GOOGLE') || k.includes('KEY'));
 
-        console.log('[Insights] Runtime Check - GEMINI_API_KEY present:', !!apiKey, 'length:', apiKey?.length ?? 0);
+        console.log('[Insights] Runtime Check - apiKey found:', !!apiKey, 'length:', apiKey?.length ?? 0);
         console.log('[Insights] Related env keys found:', relatedKeys);
-        console.log('[Insights] ALL env keys found:', allKeys);
 
         if (!apiKey) {
-            throw new Error(`GEMINI_API_KEY not set. Found ${allKeys.length} total keys. FULL KEY LIST: ${allKeys.join(', ')}`);
+            throw new Error(`API KEY not set. Checked for GEMINI_API_KEY, fizenhive_GEMINI_API_KEY, and GOOGLE_API_KEY. Related keys visible: ${relatedKeys.join(', ') || 'none'}`);
         }
 
         const prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
@@ -206,12 +205,11 @@ Respond ONLY with valid JSON in this exact format, without markdown wrapping:
 }`;
 
         const geminiRes = await fetch(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-goog-api-key': apiKey,
                 },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }]
@@ -255,8 +253,8 @@ export async function POST(request: Request) {
     try {
         const body: InsightsQuery = await request.json();
         // Initialize direct REST call to Gemini
-        const apiKey = process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY;
-        if (!apiKey) return NextResponse.json({ error: 'GEMINI_API_KEY not set' }, { status: 500 });
+        const apiKey = process.env.GEMINI_API_KEY || process.env.fizenhive_GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+        if (!apiKey) return NextResponse.json({ error: 'AI API KEY not set in environment' }, { status: 500 });
 
         if (!body.ticker) {
             return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
