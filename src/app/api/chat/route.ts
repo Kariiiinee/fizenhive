@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
 import yahooFinance from 'yahoo-finance2';
 
 
