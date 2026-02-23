@@ -170,10 +170,16 @@ function scoreCompany(metrics: any) {
 async function generateOutput(scoredData: any, language: string) {
     try {
         const apiKey = process.env.GEMINI_API_KEY;
-        const allKeys = Object.keys(process.env).filter(k => k.includes('GEMINI') || k.includes('KEY'));
+        const allKeys = Object.keys(process.env);
+        const relatedKeys = allKeys.filter(k => k.includes('GEMINI') || k.includes('KEY'));
+
         console.log('[Insights] Runtime Check - GEMINI_API_KEY present:', !!apiKey, 'length:', apiKey?.length ?? 0);
-        console.log('[Insights] All related env keys found:', allKeys);
-        if (!apiKey) throw new Error(`GEMINI_API_KEY not set. Available related keys: ${allKeys.join(', ') || 'none'}`);
+        console.log('[Insights] Related env keys found:', relatedKeys);
+        console.log('[Insights] ALL env keys found:', allKeys);
+
+        if (!apiKey) {
+            throw new Error(`GEMINI_API_KEY not set. Found ${allKeys.length} total keys. Related: ${relatedKeys.join(', ') || 'none'}. First 5 keys: ${allKeys.slice(0, 5).join(', ')}`);
+        }
 
         const prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
 
