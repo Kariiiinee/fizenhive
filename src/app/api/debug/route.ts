@@ -11,6 +11,7 @@ export async function GET() {
         gemini_key_present: !!key,
         gemini_key_length: key ? key.length : 0,
         gemini_key_prefix: key ? key.substring(0, 8) + '...' : 'MISSING',
+        all_related_keys: Object.keys(process.env).filter(k => k.includes('GEMINI') || k.includes('KEY')),
         node_env: process.env.NODE_ENV,
         gemini_test: 'not_run',
         gemini_error: null as string | null,

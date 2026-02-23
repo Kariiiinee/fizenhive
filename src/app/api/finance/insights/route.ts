@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
 import YahooFinance from 'yahoo-finance2';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
@@ -169,8 +170,10 @@ function scoreCompany(metrics: any) {
 async function generateOutput(scoredData: any, language: string) {
     try {
         const apiKey = process.env.GEMINI_API_KEY;
-        console.log('[Insights] GEMINI_API_KEY present:', !!apiKey, 'length:', apiKey?.length ?? 0);
-        if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not set');
+        const allKeys = Object.keys(process.env).filter(k => k.includes('GEMINI') || k.includes('KEY'));
+        console.log('[Insights] Runtime Check - GEMINI_API_KEY present:', !!apiKey, 'length:', apiKey?.length ?? 0);
+        console.log('[Insights] All related env keys found:', allKeys);
+        if (!apiKey) throw new Error(`GEMINI_API_KEY not set. Available related keys: ${allKeys.join(', ') || 'none'}`);
 
         const prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
 

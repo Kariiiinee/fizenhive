@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
 export const maxDuration = 30;
-import { GoogleGenAI } from '@google/genai';
 import yahooFinance from 'yahoo-finance2';
 
 
@@ -67,14 +66,12 @@ If needed, ask me follow-up questions about my budget, timeline, location, or ri
 
 
             `;
-        // Initialize new Gemini SDK
+        // Initialize direct REST call to Gemini
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) return NextResponse.json({ error: 'GEMINI_API_KEY not set' }, { status: 500 });
-        const ai = new GoogleGenAI({ apiKey });
 
-        // Build contents array: system instruction + history + latest message
-        const contents: any[] = [
-            // Prepend system role as first user turn (new SDK uses contents array)
+        // Build contents array: history + latest message (Gemini REST format)
+        const contents = [
             ...messages.slice(0, -1).map((msg: any) => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.content }]
@@ -87,14 +84,28 @@ If needed, ask me follow-up questions about my budget, timeline, location, or ri
             contents.shift();
         }
 
-        const result = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents,
-            config: {
-                systemInstruction: systemPrompt,
+        const geminiRes = await fetch(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey,
+                },
+                body: JSON.stringify({
+                    contents,
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                })
             }
-        });
-        const responseText = result.text ?? '';
+        );
+
+        if (!geminiRes.ok) {
+            const errText = await geminiRes.text();
+            throw new Error(`Gemini REST error ${geminiRes.status}: ${errText}`);
+        }
+
+        const geminiData = await geminiRes.json();
+        const responseText = (geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim();
 
         return NextResponse.json({
             role: 'assistant',
