@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 
 export const maxDuration = 30;
 import YahooFinance from 'yahoo-finance2';
-import { GoogleGenAI } from '@google/genai';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
@@ -166,12 +165,12 @@ function scoreCompany(metrics: any) {
     };
 }
 
-// 4. Generate Output (Gemini)
+// 4. Generate Output (Gemini via REST)
 async function generateOutput(scoredData: any, language: string) {
     try {
         const apiKey = process.env.GEMINI_API_KEY;
+        console.log('[Insights] GEMINI_API_KEY present:', !!apiKey, 'length:', apiKey?.length ?? 0);
         if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not set');
-        const ai = new GoogleGenAI({ apiKey });
 
         const prompt = `Analyze the following structured financial data for ${scoredData.ticker} (${scoredData.company_info.name}) acting as a neutral financial educator.
 
@@ -197,11 +196,27 @@ Respond ONLY with valid JSON in this exact format, without markdown wrapping:
   "context": "Your context here..."
 }`;
 
-        const result = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-        });
-        const text = (result.text ?? '').trim();
+        const geminiRes = await fetch(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey,
+                },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            }
+        );
+
+        if (!geminiRes.ok) {
+            const errText = await geminiRes.text();
+            throw new Error(`Gemini REST error ${geminiRes.status}: ${errText}`);
+        }
+
+        const geminiData = await geminiRes.json();
+        const text = (geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim();
 
         // Attempt to parse JSON response
         let aiResponse = { takeaway: "AI Analysis unavailable.", context: "Context unavailable." };
