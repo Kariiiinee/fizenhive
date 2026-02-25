@@ -2,60 +2,68 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Bookmark, ArrowRight, ShieldAlert, TrendingUp, Sparkles, Trash2, ShieldCheck, BookmarkX, Calendar, X, Bot, AlertTriangle, Download, FileText } from "lucide-react";
+import {
+    Bookmark, ArrowRight, ShieldAlert, TrendingUp, Sparkles,
+    Trash2, BookmarkX, Calendar, X, Bot, AlertTriangle,
+    Download, FileText
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
 
 export default function MyAnalysisPage() {
     const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
     const [selectedAnalysis, setSelectedAnalysis] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const supabase = createClient();
 
     useEffect(() => {
-        // Load saved analyses from local storage
-        const loadSaved = () => {
-            const data = localStorage.getItem("my_fizenhive_analysis");
-            if (data) {
-                try {
-                    const parsed = JSON.parse(data);
-                    // Ensure it's an array
-                    if (Array.isArray(parsed)) {
-                        // Sort by date descending
-                        const sorted = parsed.sort((a, b) => {
-                            const dateA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-                            const dateB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-                            return dateB - dateA;
-                        });
-                        setSavedAnalyses(sorted);
-                    }
-                } catch (e) {
-                    console.error("Failed to parse saved analysis", e);
+        const loadSaved = async () => {
+            setLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+
+            if (user) {
+                const { data, error } = await supabase
+                    .from("saved_analyses")
+                    .select("*")
+                    .order("timestamp", { ascending: false });
+
+                if (!error && data) {
+                    setSavedAnalyses(data);
                 }
             }
+            setLoading(false);
         };
 
         loadSaved();
 
-        // Listen to storage events mapping to same key to update on the fly natively
-        window.addEventListener("storage", loadSaved);
-        return () => window.removeEventListener("storage", loadSaved);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, _session) => {
+            loadSaved();
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    const deleteAnalysis = (ticker: string) => {
+    const deleteAnalysis = async (ticker: string, id: string) => {
         const confirmDelete = confirm(`Are you sure you want to delete ${ticker} from your saved analyses?`);
         if (!confirmDelete) return;
 
-        const updated = savedAnalyses.filter(item => item.ticker !== ticker);
-        setSavedAnalyses(updated);
-        localStorage.setItem("my_fizenhive_analysis", JSON.stringify(updated));
+        const { error } = await supabase
+            .from("saved_analyses")
+            .delete()
+            .eq("id", id);
 
-        // Dispatch event for other listeners intentionally
-        window.dispatchEvent(new Event("storage"));
-        if (selectedAnalysis?.ticker === ticker) {
-            setSelectedAnalysis(null);
+        if (!error) {
+            setSavedAnalyses((prev: any[]) => prev.filter((item: any) => item.id !== id));
+            if (selectedAnalysis?.id === id) {
+                setSelectedAnalysis(null);
+            }
+        } else {
+            alert("Failed to delete analysis: " + error.message);
         }
     };
 
     // Group analyses by Month and Year
-    const groupedAnalyses = savedAnalyses.reduce((acc, analysis) => {
+    const groupedAnalyses = savedAnalyses.reduce((acc: Record<string, any[]>, analysis: any) => {
         const date = analysis.timestamp ? new Date(analysis.timestamp) : new Date();
         const monthYear = format(date, "MMMM yyyy");
         if (!acc[monthYear]) {
@@ -63,7 +71,7 @@ export default function MyAnalysisPage() {
         }
         acc[monthYear].push(analysis);
         return acc;
-    }, {} as Record<string, any[]>);
+    }, {});
 
     const downloadAllAsCSV = () => {
         if (!savedAnalyses || savedAnalyses.length === 0) return;
@@ -206,7 +214,7 @@ export default function MyAnalysisPage() {
                                                         View Data
                                                     </button>
                                                     <button
-                                                        onClick={() => deleteAnalysis(analysis.ticker)}
+                                                        onClick={() => deleteAnalysis(analysis.ticker, analysis.id)}
                                                         className="text-muted-foreground hover:text-destructive p-1.5 transition-colors rounded-md hover:bg-destructive/10"
                                                         title="Delete saved analysis"
                                                     >

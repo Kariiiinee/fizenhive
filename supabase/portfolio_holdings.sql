@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS public.portfolio_holdings (
     quantity NUMERIC NOT NULL DEFAULT 0,
     buy_price NUMERIC NOT NULL DEFAULT 0,
     price_aim NUMERIC,
+    portfolio_id TEXT DEFAULT 'Main',
+    date_bought DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

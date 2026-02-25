@@ -17,15 +17,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="pb-16 print:pb-0" suppressHydrationWarning>
+    <html lang="en" className="pb-16 md:pb-0 print:pb-0" suppressHydrationWarning>
       <body className={`${inter.className} antialiased min-h-screen print:min-h-0 bg-background`} suppressHydrationWarning>
-        <main className="max-w-md mx-auto w-full min-h-screen print:min-h-0 relative shadow-xl overflow-x-hidden print:max-w-none print:w-auto print:shadow-none print:overflow-visible bg-background">
+        <main className="w-full min-h-screen print:min-h-0 relative shadow-xl md:shadow-none overflow-x-hidden print:max-w-none print:w-auto print:shadow-none print:overflow-visible bg-background">
           <div className="print:hidden">
             <Header />
           </div>
           {children}
         </main>
-        <div className="max-w-md mx-auto print:hidden">
+        <div className="md:hidden print:hidden">
           <BottomNav />
         </div>
       </body>

@@ -79,6 +79,61 @@ export async function GET(request: Request) {
                     }
                 }
 
+                const calculateScores = (qs: any) => {
+                    let safety = 0;
+                    let mispricing = 0;
+
+                    // Safety (0-40)
+                    const de = qs?.financialData?.debtToEquity;
+                    if (de !== undefined) {
+                        if (de < 50) safety += 15;
+                        else if (de < 100) safety += 10;
+                        else if (de < 200) safety += 5;
+                    }
+
+                    const cr = qs?.financialData?.currentRatio;
+                    if (cr !== undefined) {
+                        if (cr > 2.0) safety += 15;
+                        else if (cr > 1.5) safety += 10;
+                        else if (cr > 1.0) safety += 5;
+                    }
+
+                    const fcf = qs?.financialData?.freeCashflow;
+                    if (fcf && fcf > 0) safety += 10;
+
+                    // Mispricing (0-40)
+                    const pe = qs?.summaryDetail?.trailingPE || qs?.summaryDetail?.forwardPE;
+                    if (pe !== undefined) {
+                        if (pe < 15) mispricing += 15;
+                        else if (pe < 25) mispricing += 10;
+                        else if (pe < 35) mispricing += 5;
+                    }
+
+                    const curr = qs?.price?.regularMarketPrice;
+                    const target = qs?.financialData?.targetMeanPrice;
+                    if (curr && target) {
+                        const upside = (target - curr) / curr;
+                        if (upside > 0.3) mispricing += 15;
+                        else if (upside > 0.15) mispricing += 10;
+                        else if (upside > 0.05) mispricing += 5;
+                    }
+
+                    const roe = qs?.financialData?.returnOnEquity;
+                    if (roe !== undefined) {
+                        if (roe > 0.2) mispricing += 10;
+                        else if (roe > 0.15) mispricing += 7;
+                        else if (roe > 0.1) mispricing += 4;
+                    }
+
+                    return {
+                        safety: Math.min(40, safety),
+                        mispricing: Math.min(40, mispricing),
+                        total: Math.min(80, safety + mispricing)
+                    };
+                };
+
+                const scores = calculateScores(qs);
+
                 // Extract key stats safely
                 const pe = qs?.summaryDetail?.trailingPE || qs?.summaryDetail?.forwardPE || null;
                 const revenueGrowth = qs?.financialData?.revenueGrowth !== undefined ? qs.financialData.revenueGrowth * 100 : null;
@@ -96,7 +151,7 @@ export async function GET(request: Request) {
                     ticker: sym,
                     name: qs.price.shortName || qs.price.longName || sym,
                     price: qs.price.regularMarketPrice || 0,
-                    change: (qs.price.regularMarketChangePercent || 0) * 100, // yahoo returns a decimal like 0.012 for 1.2% in quoteSummary.price
+                    change: (qs.price.regularMarketChangePercent || 0) * 100,
                     isPositive: (qs.price.regularMarketChangePercent || 0) >= 0,
                     sector: qs.assetProfile?.sector || 'Unknown',
                     spark: spark,
@@ -107,7 +162,18 @@ export async function GET(request: Request) {
                     debtToEquity,
                     marketCap,
                     volume,
-                    fiftyTwoWeekChange
+                    fiftyTwoWeekChange,
+                    scores,
+                    metrics: {
+                        debtToEquity: qs?.financialData?.debtToEquity,
+                        currentRatio: qs?.financialData?.currentRatio,
+                        freeCashflow: qs?.financialData?.freeCashflow,
+                        pe: pe,
+                        targetMeanPrice: qs?.financialData?.targetMeanPrice,
+                        returnOnEquity: qs?.financialData?.returnOnEquity,
+                        revenueGrowth: qs?.financialData?.revenueGrowth,
+                        profitMargins: qs?.financialData?.profitMargins
+                    }
                 };
             } catch (err) {
                 console.error(`Error fetching data for ${sym}`, err);
@@ -169,8 +235,8 @@ export async function GET(request: Request) {
                 break;
         }
 
-        // Return up to top 15 results
-        return NextResponse.json(validResults.slice(0, 15));
+        // Return all valid results to allow client-side pagination
+        return NextResponse.json(validResults);
 
     } catch (error) {
         console.error("Error generating custom screener:", error);

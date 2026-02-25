@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SlidersHorizontal, ArrowUpRight, ArrowDownRight, Loader2, Globe, Briefcase, ChevronRight } from "lucide-react";
+import { SlidersHorizontal, ArrowUpRight, ArrowDownRight, Loader2, Globe, Briefcase, ChevronRight, X, CheckCircle2, AlertCircle, TrendingUp, Shield, Activity, Target } from "lucide-react";
 import Link from "next/link";
 
 type StockResult = {
@@ -20,6 +20,21 @@ type StockResult = {
     volume?: number | null;
     fiftyTwoWeekChange?: number | null;
     sector?: string;
+    scores?: {
+        safety: number;
+        mispricing: number;
+        total: number;
+    };
+    metrics?: {
+        debtToEquity?: number | null;
+        currentRatio?: number | null;
+        freeCashflow?: number | null;
+        pe?: number | null;
+        targetMeanPrice?: number | null;
+        returnOnEquity?: number | null;
+        revenueGrowth?: number | null;
+        profitMargins?: number | null;
+    };
 };
 
 export default function ScreenerPage() {
@@ -32,6 +47,8 @@ export default function ScreenerPage() {
     const [results, setResults] = useState<StockResult[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [visibleCount, setVisibleCount] = useState(15);
+    const [selectedStock, setSelectedStock] = useState<StockResult | null>(null);
 
     const regions = [
         "US (82)", "France (60)", "Germany (60)", "China (40)",
@@ -73,6 +90,7 @@ export default function ScreenerPage() {
         };
 
         fetchResults();
+        setVisibleCount(15); // Reset count when filters change
     }, [activeRegion, activeFilter, activeSector]);
 
     return (
@@ -209,7 +227,7 @@ export default function ScreenerPage() {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {results.map((stock) => (
+                    {results.slice(0, visibleCount).map((stock) => (
                         <div key={stock.ticker} className="bg-card border border-border rounded-xl p-4 flex gap-4 hover:border-primary/50 transition-colors">
                             <div className="flex-1">
                                 <div className="flex justify-between items-center">
@@ -238,12 +256,30 @@ export default function ScreenerPage() {
                                         )}
                                     </div>
 
-                                    <div className="text-right flex-1">
-                                        <div className="font-semibold">${stock.price.toFixed(2)}</div>
+                                    <div className="text-right flex-1 flex flex-col items-end">
+                                        <div className="font-semibold text-lg">${stock.price.toFixed(2)}</div>
                                         <div className={`flex justify-end items-center text-xs font-medium ${stock.isPositive ? 'text-primary' : 'text-destructive'}`}>
                                             {stock.isPositive ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
                                             {stock.change.toFixed(2)}%
                                         </div>
+                                        {stock.scores && (
+                                            <button
+                                                onClick={() => setSelectedStock(stock)}
+                                                className="mt-2 flex gap-1 items-center hover:opacity-80 transition-opacity"
+                                                title="View Score Details"
+                                            >
+                                                <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-sm ${stock.scores.total >= 60 ? 'bg-primary text-primary-foreground' :
+                                                    stock.scores.total >= 45 ? 'bg-yellow-500 text-white' :
+                                                        'bg-muted text-muted-foreground'
+                                                    }`}>
+                                                    {stock.scores.total >= 60 ? 'CHECK' : stock.scores.total >= 45 ? 'WATCH' : 'HOLD'}
+                                                </div>
+                                                <div className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-foreground font-medium border border-border flex items-center gap-1">
+                                                    S:{stock.scores.safety} M:{stock.scores.mispricing}
+                                                    <Activity className="w-2 h-2 text-primary" />
+                                                </div>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -287,8 +323,153 @@ export default function ScreenerPage() {
                             </div>
                         </div>
                     ))}
+
+                    {/* Load More Button */}
+                    {results.length > visibleCount && (
+                        <div className="flex justify-center pt-4">
+                            <button
+                                onClick={() => setVisibleCount(prev => prev + 15)}
+                                className="px-6 py-2.5 bg-secondary hover:bg-secondary/80 text-foreground text-sm font-semibold rounded-xl border border-border shadow-sm transition-all"
+                            >
+                                Load more results
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
+            {/* Score Detail Modal */}
+            {selectedStock && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div
+                        className="fixed inset-0"
+                        onClick={() => setSelectedStock(null)}
+                    ></div>
+                    <div className="bg-card w-full max-w-lg border border-border rounded-2xl shadow-2xl relative z-[101] overflow-hidden animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="p-4 border-b border-border flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${selectedStock.scores!.total >= 60 ? 'bg-primary text-primary-foreground' :
+                                    selectedStock.scores!.total >= 45 ? 'bg-yellow-500 text-white' :
+                                        'bg-muted text-muted-foreground'
+                                    }`}>
+                                    {selectedStock.scores!.total}
+                                </div>
+                                <div>
+                                    <h3 className="font-bold flex items-center gap-2">
+                                        {selectedStock.ticker} Analysis Detail
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${selectedStock.scores!.total >= 60 ? 'bg-primary/20 text-primary' :
+                                            selectedStock.scores!.total >= 45 ? 'bg-yellow-500/20 text-yellow-600' :
+                                                'bg-muted text-muted-foreground'
+                                            }`}>
+                                            {selectedStock.scores!.total >= 60 ? 'CHECK' : selectedStock.scores!.total >= 45 ? 'WATCH' : 'HOLD'}
+                                        </span>
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">{selectedStock.name}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedStock(null)}
+                                className="p-2 hover:bg-secondary rounded-full transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-hide">
+                            {/* Safety Score Section */}
+                            <section className="space-y-3">
+                                <h4 className="flex items-center gap-2 font-semibold text-sm">
+                                    <Shield className="w-4 h-4 text-primary" />
+                                    Safety Score Breakdown ({selectedStock.scores!.safety}/40)
+                                </h4>
+                                <div className="grid gap-2">
+                                    <ScoreMetricItem
+                                        label="Debt to Equity"
+                                        value={selectedStock.metrics?.debtToEquity ? selectedStock.metrics.debtToEquity.toFixed(1) : '-'}
+                                        status={selectedStock.metrics?.debtToEquity && selectedStock.metrics.debtToEquity < 100 ? 'positive' : 'neutral'}
+                                        description="Lower is better. Companies with low debt are more resilient."
+                                    />
+                                    <ScoreMetricItem
+                                        label="Current Ratio"
+                                        value={selectedStock.metrics?.currentRatio ? selectedStock.metrics.currentRatio.toFixed(2) : '-'}
+                                        status={selectedStock.metrics?.currentRatio && selectedStock.metrics.currentRatio > 1.5 ? 'positive' : 'neutral'}
+                                        description="Liquidity test. Above 1.5 indicates healthy short-term coverage."
+                                    />
+                                    <ScoreMetricItem
+                                        label="Free Cashflow"
+                                        value={selectedStock.metrics?.freeCashflow ? `$${formatCompactNumber(selectedStock.metrics.freeCashflow)}` : 'N/A'}
+                                        status={selectedStock.metrics?.freeCashflow && selectedStock.metrics.freeCashflow > 0 ? 'positive' : 'negative'}
+                                        description="Positive FCF shows the company generates real cash for growth."
+                                    />
+                                </div>
+                            </section>
+
+                            {/* Mispricing Score Section */}
+                            <section className="space-y-3 pt-2">
+                                <h4 className="flex items-center gap-2 font-semibold text-sm">
+                                    <Target className="w-4 h-4 text-primary" />
+                                    Mispricing Score Breakdown ({selectedStock.scores!.mispricing}/40)
+                                </h4>
+                                <div className="grid gap-2">
+                                    <ScoreMetricItem
+                                        label="P/E Ratio"
+                                        value={selectedStock.metrics?.pe ? selectedStock.metrics.pe.toFixed(1) : '-'}
+                                        status={selectedStock.metrics?.pe && selectedStock.metrics.pe < 25 ? 'positive' : 'neutral'}
+                                        description="Valuation multiple. Lower P/E often suggests better value."
+                                    />
+                                    <ScoreMetricItem
+                                        label="Analyst Target Upside"
+                                        value={selectedStock.metrics?.targetMeanPrice && selectedStock.price
+                                            ? `${(((selectedStock.metrics.targetMeanPrice - selectedStock.price) / selectedStock.price) * 100).toFixed(1)}%`
+                                            : '-'
+                                        }
+                                        status={selectedStock.metrics?.targetMeanPrice && selectedStock.price && (selectedStock.metrics.targetMeanPrice > selectedStock.price * 1.1) ? 'positive' : 'neutral'}
+                                        description="Expected return according to wall street average targets."
+                                    />
+                                    <ScoreMetricItem
+                                        label="Return on Equity (ROE)"
+                                        value={selectedStock.metrics?.returnOnEquity ? `${(selectedStock.metrics.returnOnEquity * 100).toFixed(1)}%` : '-'}
+                                        status={selectedStock.metrics?.returnOnEquity && selectedStock.metrics.returnOnEquity > 0.15 ? 'positive' : 'neutral'}
+                                        description="Efficiency metric. Above 15% shows excellent capital usage."
+                                    />
+                                </div>
+                            </section>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 bg-secondary/30 border-t border-border flex justify-end">
+                            <button
+                                onClick={() => setSelectedStock(null)}
+                                className="px-5 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all active:scale-95"
+                            >
+                                Got it
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ScoreMetricItem({ label, value, status, description }: { label: string, value: string, status: 'positive' | 'negative' | 'neutral', description: string }) {
+    return (
+        <div className="group p-3 bg-card border border-border/50 rounded-xl hover:border-primary/30 transition-all">
+            <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                <div className="flex items-center gap-1.5">
+                    <span className={`text-xs font-bold ${status === 'positive' ? 'text-primary' : status === 'negative' ? 'text-destructive' : 'text-foreground'
+                        }`}>
+                        {value}
+                    </span>
+                    {status === 'positive' && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
+                    {status === 'negative' && <AlertCircle className="w-3.5 h-3.5 text-destructive" />}
+                </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+                {description}
+            </p>
         </div>
     );
 }

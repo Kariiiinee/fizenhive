@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { ArrowUpRight, ArrowDownRight, Search, Loader2, Bot, ShieldAlert, Sparkles, TrendingUp, AlertTriangle, Bookmark, BookmarkCheck, Info, Download, FileText } from "lucide-react";
+import {
+    ArrowUpRight, ArrowDownRight, Search, Loader2, Bot,
+    ShieldAlert, Sparkles, TrendingUp, AlertTriangle,
+    Bookmark, BookmarkCheck, Info, Download, FileText
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
 
 function AnalysisContent() {
@@ -25,44 +30,72 @@ function AnalysisContent() {
     const [chartData, setChartData] = useState<any[]>([]);
     const [insightsData, setInsightsData] = useState<any>(null);
     const [isSaved, setIsSaved] = useState(false);
+    const [savedId, setSavedId] = useState<string | null>(null);
     const [error, setError] = useState("");
+    const supabase = createClient();
 
     useEffect(() => {
-        if (stockData?.symbol) {
-            const data = localStorage.getItem("my_fizenhive_analysis");
-            if (data) {
-                try {
-                    const parsed = JSON.parse(data);
-                    setIsSaved(parsed.some((item: any) => item.ticker === stockData.symbol));
-                } catch (e) { }
+        const checkSavedStatus = async () => {
+            if (stockData?.symbol) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data, error } = await supabase
+                        .from("saved_analyses")
+                        .select("id")
+                        .eq("ticker", stockData.symbol)
+                        .maybeSingle();
+
+                    if (data) {
+                        setIsSaved(true);
+                        setSavedId(data.id);
+                    } else {
+                        setIsSaved(false);
+                        setSavedId(null);
+                    }
+                }
             }
-        }
+        };
+        checkSavedStatus();
     }, [stockData, insightsData]);
 
-    const handleToggleSave = () => {
+    const handleToggleSave = async () => {
         if (!stockData || !insightsData) return;
-        const ticker = stockData.symbol;
-        const name = stockData.shortName || stockData.longName;
-        const data = localStorage.getItem("my_fizenhive_analysis");
-        let parsed: any[] = [];
-        if (data) {
-            try { parsed = JSON.parse(data); } catch (e) { }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            alert("Please sign in to save analyses.");
+            return;
         }
 
-        if (isSaved) {
-            parsed = parsed.filter((item: any) => item.ticker !== ticker);
-            setIsSaved(false);
+        const ticker = stockData.symbol;
+        const name = stockData.shortName || stockData.longName;
+
+        if (isSaved && savedId) {
+            const { error } = await supabase
+                .from("saved_analyses")
+                .delete()
+                .eq("id", savedId);
+
+            if (!error) {
+                setIsSaved(false);
+                setSavedId(null);
+            }
         } else {
-            parsed.push({
-                ticker,
-                name,
-                insightsData,
-                timestamp: new Date().toISOString()
-            });
-            setIsSaved(true);
+            const { data, error } = await supabase
+                .from("saved_analyses")
+                .insert([{
+                    user_id: user.id,
+                    ticker,
+                    name,
+                    insights_data: insightsData,
+                }])
+                .select()
+                .single();
+
+            if (!error && data) {
+                setIsSaved(true);
+                setSavedId(data.id);
+            }
         }
-        localStorage.setItem("my_fizenhive_analysis", JSON.stringify(parsed));
-        window.dispatchEvent(new Event("storage"));
     };
 
     const fetchStockData = async (symbol: string) => {
@@ -254,7 +287,7 @@ function AnalysisContent() {
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     placeholder="Search ticker or company (e.g. AAPL, LVMH)"
-                    className="w-full bg-card border border-border rounded-xl py-3 pl-10 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-foreground placeholder:text-muted-foreground shadow-sm relative z-50"
+                    className="w-full bg-card border border-border rounded-xl py-3 pl-10 pr-10 text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-foreground placeholder:text-muted-foreground shadow-sm relative z-50"
                     onFocus={() => { if (searchResults.length > 0) setShowDropdown(true) }}
                 />
                 <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-50" />
