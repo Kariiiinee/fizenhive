@@ -10,8 +10,12 @@ import { useSearchParams } from "next/navigation";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
+import { useTranslation } from "@/lib/i18n";
+import { isGuestLimitReached, incrementGuestUsage } from "@/lib/guest-limit";
+import { GuestLimitModal } from "@/components/GuestLimitModal";
 
 function AnalysisContent() {
+    const { t, language } = useTranslation();
     const searchParams = useSearchParams();
     const initialQuery = searchParams.get("search") || "AAPL";
 
@@ -32,11 +36,16 @@ function AnalysisContent() {
     const [isSaved, setIsSaved] = useState(false);
     const [savedId, setSavedId] = useState<string | null>(null);
     const [error, setError] = useState("");
-    const supabase = createClient();
+    const [supabase, setSupabase] = useState<any>(null);
+    const [showLimitModal, setShowLimitModal] = useState(false);
+
+    useEffect(() => {
+        setSupabase(createClient());
+    }, []);
 
     useEffect(() => {
         const checkSavedStatus = async () => {
-            if (stockData?.symbol) {
+            if (stockData?.symbol && supabase) {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
                     const { data, error } = await supabase
@@ -52,22 +61,61 @@ function AnalysisContent() {
                         setIsSaved(false);
                         setSavedId(null);
                     }
+                } else {
+                    // Guest Mode: Check localStorage
+                    const localSaved = localStorage.getItem('fizenhive_saved_analyses_demo');
+                    if (localSaved) {
+                        const savedList = JSON.parse(localSaved);
+                        const exists = savedList.find((item: any) => item.ticker === stockData.symbol);
+                        if (exists) {
+                            setIsSaved(true);
+                            setSavedId(exists.id);
+                        } else {
+                            setIsSaved(false);
+                            setSavedId(null);
+                        }
+                    } else {
+                        setIsSaved(false);
+                        setSavedId(null);
+                    }
                 }
             }
         };
         checkSavedStatus();
-    }, [stockData, insightsData]);
+    }, [stockData, insightsData, supabase]);
 
     const handleToggleSave = async () => {
-        if (!stockData || !insightsData) return;
+        if (!stockData || !insightsData || !supabase) return;
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            alert("Please sign in to save analyses.");
-            return;
-        }
 
         const ticker = stockData.symbol;
         const name = stockData.shortName || stockData.longName;
+
+        if (!user) {
+            // Guest Mode: Save to localStorage
+            const localSaved = localStorage.getItem('fizenhive_saved_analyses_demo');
+            let savedList = localSaved ? JSON.parse(localSaved) : [];
+
+            if (isSaved) {
+                savedList = savedList.filter((item: any) => item.ticker !== ticker);
+                setIsSaved(false);
+                setSavedId(null);
+            } else {
+                const newId = Math.random().toString(36).substr(2, 9);
+                const newEntry = {
+                    id: newId,
+                    ticker,
+                    name,
+                    insightsData: insightsData,
+                    timestamp: new Date().toISOString()
+                };
+                savedList.push(newEntry);
+                setIsSaved(true);
+                setSavedId(newId);
+            }
+            localStorage.setItem('fizenhive_saved_analyses_demo', JSON.stringify(savedList));
+            return;
+        }
 
         if (isSaved && savedId) {
             const { error } = await supabase
@@ -117,7 +165,7 @@ function AnalysisContent() {
             setInsightsData(null);
 
         } catch (err) {
-            setError("Could not find stock symbol.");
+            setError(t('common.error'));
             setStockData(null);
             setChartData([]);
             setInsightsData(null);
@@ -127,23 +175,32 @@ function AnalysisContent() {
     };
 
     const fetchInsightsData = async (symbol: string) => {
+        if (!supabase) return;
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user && isGuestLimitReached('analysis')) {
+            setShowLimitModal(true);
+            return;
+        }
+
         setLoadingInsights(true);
         setError(""); // Clear any previous errors
         try {
             const res = await fetch('/api/finance/insights', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ticker: symbol, language: 'en' })
+                body: JSON.stringify({ ticker: symbol, language: language })
             });
             const data = await res.json();
             if (res.ok) {
                 setInsightsData(data);
+                if (!user) incrementGuestUsage('analysis');
             } else {
-                setError(data.error || "Failed to generate AI insights.");
+                setError(data.error || t('analysis.insightsError'));
             }
         } catch (err: any) {
             console.error("Failed to fetch insights", err);
-            setError("Network error or timeout while generating insights.");
+            setError(t('analysis.networkError'));
         } finally {
             setLoadingInsights(false);
         }
@@ -280,13 +337,18 @@ function AnalysisContent() {
 
     return (
         <div className="pt-20 p-4 pb-20 space-y-6 relative print:p-0 print:m-0 print:max-w-none print:w-full print:block print:space-y-4">
+            <GuestLimitModal
+                isOpen={showLimitModal}
+                onClose={() => setShowLimitModal(false)}
+                feature="analysis"
+            />
             {/* Search Bar */}
             <form onSubmit={handleSearchSubmit} className="relative mt-2 z-50 print-hidden">
                 <input
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Search ticker or company (e.g. AAPL, LVMH)"
+                    placeholder={t('analysis.searchPlaceholder')}
                     className="w-full bg-card border border-border rounded-xl py-3 pl-10 pr-10 text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-foreground placeholder:text-muted-foreground shadow-sm relative z-50"
                     onFocus={() => { if (searchResults.length > 0) setShowDropdown(true) }}
                 />
@@ -332,7 +394,7 @@ function AnalysisContent() {
             {loading ? (
                 <div className="flex flex-col items-center justify-center h-64 space-y-4">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Fetching market data...</p>
+                    <p className="text-sm text-muted-foreground">{t('analysis.loadingMarketData')}</p>
                 </div>
             ) : stockData ? (
                 <>
@@ -423,7 +485,7 @@ function AnalysisContent() {
                                 </AreaChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-sm text-muted-foreground">No chart data available for this range.</p>
+                            <p className="text-sm text-muted-foreground">{t('analysis.noChartData')}</p>
                         )}
                     </section>
 
@@ -435,7 +497,7 @@ function AnalysisContent() {
                                 <div className="flex items-center gap-2">
                                     <Bot className="w-5 h-5 text-primary" />
                                     <h3 className="font-semibold text-lg flex items-center gap-2">
-                                        AI Value Analysis
+                                        {t('analysis.aiAnalysisTitle')}
                                     </h3>
                                 </div>
                                 {insightsData && !loadingInsights && (
@@ -447,7 +509,7 @@ function AnalysisContent() {
                                             }`}
                                     >
                                         {isSaved ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
-                                        {isSaved ? "Saved" : "Save"}
+                                        {isSaved ? t('common.saved') : t('common.save')}
                                     </button>
                                 )}
                             </div>
@@ -455,7 +517,7 @@ function AnalysisContent() {
                             {loadingInsights ? (
                                 <div className="flex flex-col items-center justify-center py-8 space-y-3">
                                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                                    <p className="text-sm font-medium text-muted-foreground animate-pulse">Crunching fundamentals...</p>
+                                    <p className="text-sm font-medium text-muted-foreground animate-pulse">{t('analysis.crunchingFundamentals')}</p>
                                 </div>
                             ) : insightsData ? (
                                 <div className="space-y-5">
@@ -463,7 +525,7 @@ function AnalysisContent() {
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="bg-background rounded-xl p-3 border border-border">
                                             <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                                                <TrendingUp className="w-3 h-3 text-primary" /> Intrinsic Value
+                                                <TrendingUp className="w-3 h-3 text-primary" /> {t('analysis.intrinsicValue')}
                                             </p>
                                             <p className="font-bold text-foreground text-lg">
                                                 ${insightsData.intrinsic_value?.final > 0 ? insightsData.intrinsic_value.final.toFixed(2) : "N/A"}
@@ -474,7 +536,7 @@ function AnalysisContent() {
                                         </div>
                                         <div className="bg-background rounded-xl p-3 border border-border">
                                             <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                                                <Sparkles className="w-3 h-3 text-yellow-500" /> Quality Score
+                                                <Sparkles className="w-3 h-3 text-yellow-500" /> {t('analysis.qualityScore')}
                                             </p>
                                             <div className="flex items-end gap-1">
                                                 <p className="font-bold text-foreground text-lg">{insightsData.quality_score}</p>
@@ -491,8 +553,8 @@ function AnalysisContent() {
                                     {/* AI Explanation Text */}
                                     <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
                                         <div className="space-y-3 text-sm text-foreground/90 leading-relaxed">
-                                            <p><span className="font-semibold text-primary">Takeaway:</span> {insightsData.takeaway}</p>
-                                            <p><span className="font-semibold text-muted-foreground">Context:</span> {insightsData.context}</p>
+                                            <p><span className="font-semibold text-primary">{t('analysis.takeaway')}:</span> {insightsData.takeaway}</p>
+                                            <p><span className="font-semibold text-muted-foreground">{t('analysis.context')}:</span> {insightsData.context}</p>
                                         </div>
                                     </div>
 
@@ -500,7 +562,7 @@ function AnalysisContent() {
                                     {insightsData.risk_flags && insightsData.risk_flags.length > 0 && (
                                         <div className="mt-3">
                                             <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1 mb-2">
-                                                <AlertTriangle className="w-3 h-3 text-destructive" /> Identified Risks
+                                                <AlertTriangle className="w-3 h-3 text-destructive" /> {t('analysis.identifiedRisks')}
                                             </h4>
                                             <ul className="space-y-1.5">
                                                 {insightsData.risk_flags.map((flag: string, i: number) => (
@@ -519,14 +581,14 @@ function AnalysisContent() {
                                         <Bot className="w-7 h-7" />
                                     </div>
                                     <p className="text-sm text-center text-muted-foreground max-w-[250px]">
-                                        Discover intrinsic value, quality scores, and hidden risks using AI.
+                                        {t('analysis.generateHelpText')}
                                     </p>
                                     <button
                                         onClick={() => fetchInsightsData(stockData.symbol)}
                                         className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 py-2.5 rounded-full transition-all shadow-md active:scale-95 flex items-center gap-2"
                                     >
                                         <Sparkles className="w-4 h-4" />
-                                        Generate Analysis
+                                        {t('analysis.generateButton')}
                                     </button>
                                 </div>
                             ) : null}
@@ -535,55 +597,47 @@ function AnalysisContent() {
 
                     {/* Stats Grid */}
                     <section>
-                        <h3 className="text-lg font-semibold mb-3">Key Statistics</h3>
+                        <h3 className="text-lg font-semibold mb-3">{t('analysis.keyStats')}</h3>
                         <div className="grid grid-cols-2 gap-3">
                             {[
                                 {
-                                    label: "Market Cap",
+                                    key: 'marketCap',
                                     value: stockData.marketCap ? `$${(stockData.marketCap / 1e9).toFixed(2)}B` : '---',
-                                    definition: "Total value of the company in the market. Gives a sense of size and stability; helps compare small, mid, and large-cap companies."
                                 },
                                 {
-                                    label: "P/E Ratio",
+                                    key: 'peRatio',
                                     value: stockData.trailingPE?.toFixed(2) || 'N/A',
-                                    definition: "Shows how much investors are paying per $1 of earnings. High PE = investors expect growth, low PE = potentially undervalued."
                                 },
                                 {
-                                    label: "Revenue Growth",
+                                    key: 'revenueGrowth',
                                     value: stockData.summary?.financialData?.revenueGrowth !== undefined ? `${(stockData.summary.financialData.revenueGrowth * 100).toFixed(2)}%` : 'N/A',
-                                    definition: "Indicates how fast the company is growing its sales over time. Shows business expansion or stagnation."
                                 },
                                 {
-                                    label: "Profit Margin",
+                                    key: 'profitMargin',
                                     value: stockData.summary?.financialData?.profitMargins !== undefined ? `${(stockData.summary.financialData.profitMargins * 100).toFixed(2)}%` : 'N/A',
-                                    definition: "Percentage of revenue that becomes profit. Higher margins = more efficient operations."
                                 },
                                 {
-                                    label: "Debt-to-Equity",
+                                    key: 'debtToEquity',
                                     value: stockData.summary?.financialData?.debtToEquity !== undefined ? (stockData.summary.financialData.debtToEquity / 100).toFixed(2) : 'N/A',
-                                    definition: "Shows how much debt the company uses compared to its equity. High D/E = more leverage risk; low D/E = more conservative balance sheet."
                                 },
                                 {
-                                    label: "Dividend Yield",
+                                    key: 'dividendYield',
                                     value: stockData.summary?.summaryDetail?.dividendYield !== undefined ? `${(stockData.summary.summaryDetail.dividendYield * 100).toFixed(2)}%` : (stockData.dividendYield !== undefined ? `${stockData.dividendYield}%` : 'N/A'),
-                                    definition: "Income returned to shareholders. Useful for income-focused investors and teaching cash flow concepts."
                                 },
                                 {
-                                    label: "52-Week Price Change",
+                                    key: 'fiftyTwoWeekPriceChange',
                                     value: stockData.fiftyTwoWeekChangePercent !== undefined
                                         ? `${stockData.fiftyTwoWeekChangePercent > 0 ? '+' : ''}${stockData.fiftyTwoWeekChangePercent.toFixed(2)}%`
                                         : (stockData.summary?.defaultKeyStatistics?.['52WeekChange'] !== undefined ? `${stockData.summary.defaultKeyStatistics['52WeekChange'] > 0 ? '+' : ''}${(stockData.summary.defaultKeyStatistics['52WeekChange'] * 100).toFixed(2)}%` : '---'),
-                                    definition: "Shows the stock’s performance over the past year. Helps beginners see volatility and trend direction."
                                 },
                                 {
-                                    label: "Volume",
+                                    key: 'volume',
                                     value: stockData.regularMarketVolume ? (stockData.regularMarketVolume / 1e6).toFixed(1) + 'M' : '---',
-                                    definition: "Number of shares traded in a given period (usually daily). Indicates liquidity and market interest; high volume means it’s easier to buy/sell and shows investor attention."
                                 }
                             ].map((stat, idx) => (
                                 <div key={idx} className="bg-card border border-border rounded-xl p-3 shadow-sm relative group cursor-help transition-colors hover:bg-muted/50">
                                     <div className="flex items-center justify-between mb-1.5">
-                                        <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
+                                        <p className="text-xs text-muted-foreground font-medium">{t(`analysis.stats.${stat.key}.label`)}</p>
                                         <Info className="w-3.5 h-3.5 text-muted-foreground/60 transition-colors group-hover:text-primary" />
                                     </div>
                                     <p className="font-semibold text-foreground">
@@ -591,8 +645,8 @@ function AnalysisContent() {
                                     </p>
                                     {/* Tooltip for desktop hover */}
                                     <div className="absolute left-1/2 -translate-x-1/2 bottom-[108%] w-[210px] p-3 bg-foreground text-background text-xs leading-relaxed rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
-                                        <span className="font-semibold text-primary/90 mb-1 block uppercase tracking-wider text-[10px]">{stat.label}</span>
-                                        {stat.definition}
+                                        <span className="font-semibold text-primary/90 mb-1 block uppercase tracking-wider text-[10px]">{t(`analysis.stats.${stat.key}.label`)}</span>
+                                        {t(`analysis.stats.${stat.key}.def`)}
                                         <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-foreground rotate-45"></div>
                                     </div>
                                 </div>
@@ -607,7 +661,7 @@ function AnalysisContent() {
                             onClick={(e) => { e.preventDefault(); downloadAnalysisAsCSV(); }}
                             className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-all shadow-sm"
                         >
-                            <Download className="w-4 h-4" /> Download CSV
+                            <Download className="w-4 h-4" /> {t('common.downloadCsv')}
                         </button>
 
                         <button
@@ -615,7 +669,7 @@ function AnalysisContent() {
                             onClick={(e) => { e.preventDefault(); downloadAnalysisAsPDF(); }}
                             className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md active:scale-95"
                         >
-                            <FileText className="w-4 h-4" /> Export as PDF
+                            <FileText className="w-4 h-4" /> {t('common.exportPdf')}
                         </button>
                     </div>
                 </>
@@ -625,10 +679,12 @@ function AnalysisContent() {
 }
 
 export default function AnalysisPage() {
+    const { t } = useTranslation();
     return (
         <Suspense fallback={
-            <div className="flex h-screen w-full items-center justify-center">
+            <div className="flex h-screen w-full flex-col items-center justify-center space-y-4">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
             </div>
         }>
             <AnalysisContent />

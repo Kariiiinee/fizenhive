@@ -1,0 +1,21 @@
+{
+    "name": "FizenHive",
+    "short_name": "FizenHive",
+    "description": "Premium AI Stock Screener & Portfolio Analysis",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#000000",
+    "theme_color": "#000000",
+    "icons": [
+        {
+            "src": "/logo_fizenhive1.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/logo_fizenhive1.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

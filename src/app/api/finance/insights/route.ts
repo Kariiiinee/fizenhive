@@ -140,7 +140,7 @@ function computeMetrics(data: any, query: InsightsQuery) {
 }
 
 // 3. Score Company & Risk Flags
-function scoreCompany(metrics: any) {
+function scoreCompany(metrics: any, language: string = 'en') {
     const raw = metrics._raw_for_scoring;
     let score = 0;
     const flags = [];
@@ -153,9 +153,21 @@ function scoreCompany(metrics: any) {
     if (raw.debtEquity < 0.8 && raw.debtEquity > 0) score += 1;
 
     // Risk Flags
-    if (raw.debtEquity > 1) flags.push("High Leverage: Debt to Equity ratio exceeds 1.0");
-    if (raw.currentRatio < 1 && raw.currentRatio > 0) flags.push("Liquidity Risk: Current ratio is less than 1.0 (Current Assets < Current Liabilities)");
-    if (raw.fcf < 0) flags.push("Cash Burn: Free Cash Flow is negative");
+    if (raw.debtEquity > 1) {
+        flags.push(language === 'fr'
+            ? "Levier Élevé : Le ratio dette/fonds propres dépasse 1.0"
+            : "High Leverage: Debt to Equity ratio exceeds 1.0");
+    }
+    if (raw.currentRatio < 1 && raw.currentRatio > 0) {
+        flags.push(language === 'fr'
+            ? "Risque de Liquidité : Le ratio de liquidité générale est inférieur à 1.0 (Actifs à court terme < Passifs à court terme)"
+            : "Liquidity Risk: Current ratio is less than 1.0 (Current Assets < Current Liabilities)");
+    }
+    if (raw.fcf < 0) {
+        flags.push(language === 'fr'
+            ? "Consommation de Trésorerie : Le Flux de Trésorerie Disponible est négatif"
+            : "Cash Burn: Free Cash Flow is negative");
+    }
 
     delete metrics._raw_for_scoring; // Remove temporary field
 
@@ -262,7 +274,7 @@ export async function POST(request: Request) {
         const computedMetrics = computeMetrics(rawData, body);
 
         // 3. Score
-        const scoredData = scoreCompany(computedMetrics);
+        const scoredData = scoreCompany(computedMetrics, body.language || 'en');
 
         // 4. Generate AI Text
         const finalOutput = await generateOutput(scoredData, body.language || 'en');

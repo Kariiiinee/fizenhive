@@ -39,8 +39,14 @@ export async function updateSession(request: NextRequest) {
         !user &&
         !request.nextUrl.pathname.startsWith('/login') &&
         !request.nextUrl.pathname.startsWith('/auth') &&
+        !request.nextUrl.pathname.startsWith('/analysis') &&
+        !request.nextUrl.pathname.startsWith('/my-analysis') &&
+        !request.nextUrl.pathname.startsWith('/screener') &&
+        !request.nextUrl.pathname.startsWith('/chat') &&
+        !request.nextUrl.pathname.startsWith('/lab') &&
+        !request.nextUrl.pathname.startsWith('/api') &&
         request.nextUrl.pathname !== '/favicon.ico' &&
-        request.nextUrl.pathname !== '/' // Allow home page for now, or maybe protect it?
+        request.nextUrl.pathname !== '/'
     ) {
         // no user, potentially respond by redirecting the user to the login page
         const url = request.nextUrl.clone()

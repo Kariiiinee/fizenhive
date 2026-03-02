@@ -1,10 +1,22 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense, useRef } from "react";
+import React, { useState, useEffect, useMemo, Suspense, useRef, Fragment } from "react";
 import { Plus, Loader2, Info, Edit2, Check, X, Trash2, LogOut, Settings, Download, FileText } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
+import { useTranslation } from "@/lib/i18n";
 function DashboardContent() {
+  const { t, language } = useTranslation();
+
+  const renderHeader = (text: string) => {
+    return text.split(' ').map((part, i) => (
+      <Fragment key={i}>
+        {i > 0 && <br />}
+        {part}
+      </Fragment>
+    ));
+  };
+
   const [holdings, setHoldings] = useState<any[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
 
@@ -28,28 +40,32 @@ function DashboardContent() {
   const [userId, setUserId] = useState<string | null>(null);
 
   // Portfolio Tabs
-  const [portfolios, setPortfolios] = useState<any[]>([{ id: 'Main', name: 'Main Portfolio' }]);
+  const [portfolios, setPortfolios] = useState<any[]>([{ id: 'Main', name: t('dashboard.mainPortfolio') }]);
   const [activePortfolioId, setActivePortfolioId] = useState<string>('Main');
   const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState("");
   const [renamingPortfolioId, setRenamingPortfolioId] = useState<string | null>(null);
   const [renamePortfolioName, setRenamePortfolioName] = useState("");
+  const [supabase, setSupabase] = useState<any>(null);
 
   useEffect(() => {
+    const client = createClient();
+    setSupabase(client);
+
     const savedTabs = localStorage.getItem('fizenhive_tabs');
     if (savedTabs) {
       setPortfolios(JSON.parse(savedTabs));
     }
-    checkUserAndLoadData();
+    checkUserAndLoadData(client);
   }, []);
 
-  const checkUserAndLoadData = async () => {
+  const checkUserAndLoadData = async (client: any) => {
     setLoadingInitial(true);
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await client.auth.getSession();
 
     if (session?.user) {
       setUserId(session.user.id);
-      const { data } = await supabase.from('portfolio_holdings').select('*').eq('user_id', session.user.id).order('created_at', { ascending: true });
+      const { data } = await client.from('portfolio_holdings').select('*').eq('user_id', session.user.id).order('created_at', { ascending: true });
       if (data && data.length > 0) {
         await enhanceHoldingsWithLivePrices(data);
       } else {
@@ -138,6 +154,7 @@ function DashboardContent() {
     setShowDropdown(false);
     setInputValue("");
     setAddingSymbol(symbol);
+    if (!supabase) return;
 
     // Avoid exact duplicate ticker in the same portfolio
     if (holdings.some(h => h.ticker === symbol && (h.portfolio_id || 'Main') === activePortfolioId)) {
@@ -336,17 +353,17 @@ function DashboardContent() {
       });
       runningVal += step;
     }
-    data.push({ date: 'Now', portfolio: grandTotalCurrentValue, contribution: grandTotalInvested });
+    data.push({ date: t('dashboard.now'), portfolio: grandTotalCurrentValue, contribution: grandTotalInvested });
     return data;
-  }, [grandTotalCurrentValue, grandTotalInvested, metrics.length, chartRange]);
+  }, [grandTotalCurrentValue, grandTotalInvested, metrics.length, chartRange, t]);
 
   const downloadPortfolioAsCSV = () => {
     if (metrics.length === 0) return;
 
     const headers = [
-      "Ticker", "Month Bought", "Quantity", "Avg Cost", "Total Invested",
-      "Current Price", "Current Value", "Current ROI %", "Target Price",
-      "Target ROI %", "Return Target", "Total Return"
+      t('dashboard.table.ticker'), t('dashboard.table.mthBought'), t('dashboard.table.qty'), t('dashboard.table.avgCost'), t('dashboard.table.totalInvested'),
+      t('dashboard.table.currentPrice'), t('dashboard.table.currentValue'), t('dashboard.table.currentRoi'), t('dashboard.table.targetPrice'),
+      t('dashboard.table.targetRoi'), t('dashboard.table.targetRtn'), t('dashboard.table.totalRtn')
     ];
 
     const csvRows = [
@@ -397,7 +414,7 @@ function DashboardContent() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-4">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="text-muted-foreground font-medium">Loading Portfolio...</p>
+        <p className="text-muted-foreground font-medium">{t('dashboard.loadingPortfolio')}</p>
       </div>
     );
   }
@@ -412,32 +429,32 @@ function DashboardContent() {
             {/* Tiny Luxury Hero Section */}
             <div className="text-center lg:text-left space-y-2 mb-8 md:mb-12 mt-4 cursor-default">
               <h1 className="text-[2.5rem] leading-[1.1] md:text-5xl font-bold tracking-tighter text-foreground bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/80">
-                Invest with clarity, simply.
+                {t('dashboard.heroTitle')}
               </h1>
               <p className="text-[15px] md:text-base text-muted-foreground font-medium tracking-tight max-w-sm mx-auto lg:mx-0 leading-relaxed">
-                Build, analyze, and track your portfolio in one space.
+                {t('dashboard.heroSubtitle')}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col justify-center items-center text-center">
-                <p className="text-sm text-muted-foreground font-medium mb-2 line-clamp-1">Invested</p>
-                <h3 className="text-2xl font-bold truncate w-full">${grandTotalInvested.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
+                <p className="text-sm text-muted-foreground font-medium mb-2 line-clamp-1">{t('dashboard.invested')}</p>
+                <h3 className="text-2xl font-bold truncate w-full">${grandTotalInvested.toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
               </div>
               <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col justify-center items-center text-center">
-                <p className="text-sm text-muted-foreground font-medium mb-2 line-clamp-1">Current</p>
-                <h3 className="text-2xl font-bold truncate w-full">${grandTotalCurrentValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
+                <p className="text-sm text-muted-foreground font-medium mb-2 line-clamp-1">{t('dashboard.current')}</p>
+                <h3 className="text-2xl font-bold truncate w-full">${grandTotalCurrentValue.toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
               </div>
               <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col justify-center items-center text-center">
-                <p className="text-sm text-muted-foreground font-medium mb-2 line-clamp-1">ROI</p>
+                <p className="text-sm text-muted-foreground font-medium mb-2 line-clamp-1">{t('dashboard.roi')}</p>
                 <h3 className={`text-2xl font-bold truncate w-full ${overallRoi >= 0 ? 'text-primary' : 'text-destructive'}`}>
                   {overallRoi >= 0 ? '+' : ''}{overallRoi.toFixed(0)}%
                 </h3>
               </div>
               <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col justify-center items-center text-center">
-                <p className="text-sm text-muted-foreground font-medium mb-2 line-clamp-1">Return</p>
+                <p className="text-sm text-muted-foreground font-medium mb-2 line-clamp-1">{t('dashboard.return')}</p>
                 <h3 className={`text-2xl font-bold truncate w-full ${grandTotalReturn >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                  {grandTotalReturn >= 0 ? '+' : ''}${grandTotalReturn.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  {grandTotalReturn >= 0 ? '+' : ''}${grandTotalReturn.toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </h3>
               </div>
             </div>
@@ -450,7 +467,7 @@ function DashboardContent() {
                     onClick={() => setIsAdding(true)}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm w-full"
                   >
-                    <Plus className="w-4 h-4" /> Add Investment
+                    <Plus className="w-4 h-4" /> {t('dashboard.addInvestment')}
                   </button>
                 ) : (
                   <div className="relative z-50 w-full">
@@ -458,7 +475,7 @@ function DashboardContent() {
                       type="text"
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
-                      placeholder="Search to add (e.g. AAPL)"
+                      placeholder={t('dashboard.searchPlaceholder')}
                       className="w-full bg-card border border-border rounded-lg py-3 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
                       autoFocus
                     />
@@ -493,7 +510,7 @@ function DashboardContent() {
 
               <div className="flex items-center gap-2 bg-muted/40 px-3 py-2 rounded-lg text-sm text-muted-foreground border border-border/50">
                 <Info className="w-4 h-4 shrink-0" />
-                <span>Target Price is your price aim for learning goals.</span>
+                <span>{t('dashboard.targetPriceInfo')}</span>
               </div>
             </div>
           </div>
@@ -538,7 +555,7 @@ function DashboardContent() {
                   <input
                     autoFocus
                     type="text"
-                    placeholder="Portfolio Name..."
+                    placeholder={t('dashboard.portfolioNamePlaceholder')}
                     value={newPortfolioName}
                     onChange={e => setNewPortfolioName(e.target.value)}
                     className="px-3 py-1.5 rounded-full text-sm border focus:outline-none focus:border-primary bg-background w-32 shadow-sm"
@@ -555,7 +572,7 @@ function DashboardContent() {
                   onClick={() => setIsAddingPortfolio(true)}
                   className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-all whitespace-nowrap ml-1"
                 >
-                  <Plus className="w-4 h-4" /> New Tab
+                  <Plus className="w-4 h-4" /> {t('dashboard.newTab')}
                 </button>
               )}
             </div>
@@ -564,9 +581,9 @@ function DashboardContent() {
             <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col h-full">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 gap-4">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Portfolio Value</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">{t('dashboard.portfolioValue')}</p>
                   <div className="flex items-end gap-3">
-                    <h2 className="text-4xl font-bold tracking-tight">${grandTotalCurrentValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h2>
+                    <h2 className="text-4xl font-bold tracking-tight">${grandTotalCurrentValue.toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h2>
                     <span className={`text-sm font-semibold mb-1 px-2 py-0.5 rounded-md ${overallRoi >= 0 ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive'}`}>
                       {overallRoi >= 0 ? '+' : ''}{overallRoi.toFixed(2)}%
                     </span>
@@ -621,8 +638,8 @@ function DashboardContent() {
                         itemStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
                         labelStyle={{ color: 'hsl(var(--muted-foreground))', marginBottom: '4px' }}
                         formatter={(value: any, name: any) => [
-                          `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-                          name === 'portfolio' ? 'Portfolio Value' : 'Total Contribution'
+                          `$${Number(value).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+                          name === 'portfolio' ? t('dashboard.portfolioValue') : 'Total Contribution'
                         ]}
                       />
                       <Area
@@ -645,7 +662,7 @@ function DashboardContent() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-muted-foreground border-2 border-dashed border-border/50 rounded-xl bg-muted/20">
-                    Add holding to see your performance graph
+                    {t('dashboard.emptyChart')}
                   </div>
                 )}
               </div>
@@ -656,13 +673,13 @@ function DashboardContent() {
 
         {addingSymbol && (
           <div className="flex items-center text-sm text-primary">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Adding {addingSymbol}...
+            <Loader2 className="w-4 h-4 animate-spin mr-2" /> {t('common.loading')} {addingSymbol}...
           </div>
         )}
 
         {/* Scroll Hint for Mobile */}
         <div className="flex items-center justify-end mb-2 md:hidden text-xs text-muted-foreground animate-pulse print-hidden">
-          <span>Scroll horizontally to see more columns</span>
+          <span>{t('dashboard.scrollHint')}</span>
           <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
           </svg>
@@ -679,8 +696,8 @@ function DashboardContent() {
               </div>
             </div>
             <div className="text-right">
-              <h2 className="text-xl font-bold text-foreground">Portfolio Report</h2>
-              <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString()}</p>
+              <h2 className="text-xl font-bold text-foreground">{t('dashboard.portfolioReport')}</h2>
+              <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString(language)}</p>
             </div>
           </div>
 
@@ -690,51 +707,51 @@ function DashboardContent() {
               <thead className="bg-muted/50 text-muted-foreground border-b border-border">
                 <tr className="align-bottom">
                   <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold w-12 print-hidden"></th>
-                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold whitespace-nowrap sticky left-0 z-20 bg-muted shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] align-bottom">Ticker</th>
+                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold whitespace-nowrap sticky left-0 z-20 bg-muted shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] align-bottom">{t('dashboard.table.ticker')}</th>
 
                   {/* New Month Bought Column */}
                   <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center group cursor-help relative whitespace-nowrap align-bottom">
-                    Mth<br />Bought
+                    {renderHeader(t('dashboard.table.mthBought'))}
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 bg-foreground text-background text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 font-normal shadow-lg pointer-events-none text-center">
                       When you initially opened this position.
                     </div>
                   </th>
 
                   <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-right group cursor-help relative align-bottom">
-                    Qty
+                    {t('dashboard.table.qty')}
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 bg-foreground text-background text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 font-normal shadow-lg pointer-events-none text-center">
                       Number of shares you currently own.
                     </div>
                   </th>
                   <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center group cursor-help relative whitespace-nowrap align-bottom">
-                    Avg<br />Cost
+                    {renderHeader(t('dashboard.table.avgCost'))}
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 bg-foreground text-background text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 font-normal shadow-lg pointer-events-none text-center">
                       The average cost per share you paid.
                     </div>
                   </th>
                   <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center group cursor-help relative whitespace-nowrap align-bottom">
-                    Total<br />Invested
+                    {renderHeader(t('dashboard.table.totalInvested'))}
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 bg-foreground text-background text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 font-normal shadow-lg pointer-events-none text-center">
                       Total amount of money initially put into this holding. (Qty * Price Bought)
                     </div>
                   </th>
-                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom">Current<br />Price</th>
+                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom">{renderHeader(t('dashboard.table.currentPrice'))}</th>
                   <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center group cursor-help relative whitespace-nowrap align-bottom">
-                    Current<br />Value
+                    {renderHeader(t('dashboard.table.currentValue'))}
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 bg-foreground text-background text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 font-normal shadow-lg pointer-events-none text-center">
                       The value of your shares right now based on the Live Current Price.
                     </div>
                   </th>
-                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom">Current<br />ROI %</th>
-                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom">Total<br />Rtn</th>
+                  <th className="px-2 py-3 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom">{renderHeader(t('dashboard.table.currentRoi'))}</th>
+                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom">{renderHeader(t('dashboard.table.totalRtn'))}</th>
                   <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center group cursor-help relative whitespace-nowrap align-bottom bg-primary/5">
-                    Target<br />Price
+                    {renderHeader(t('dashboard.table.targetPrice'))}
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 bg-foreground text-background text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 font-normal shadow-lg pointer-events-none text-center">
                       Your target price to sell or evaluate. Used to calculate Return Target.
                     </div>
                   </th>
-                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom bg-primary/5">Target<br />ROI %</th>
-                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom bg-primary/5">Target<br />Rtn</th>
+                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom bg-primary/5">{renderHeader(t('dashboard.table.targetRoi'))}</th>
+                  <th className="px-2 py-2 sm:px-3 sm:py-3 font-semibold text-center whitespace-nowrap align-bottom bg-primary/5">{renderHeader(t('dashboard.table.targetRtn'))}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -770,7 +787,7 @@ function DashboardContent() {
                               const [y, m] = row.date_bought.split('-');
                               if (!y || !m) return '---';
                               const d = new Date(parseInt(y), parseInt(m) - 1);
-                              return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }).replace(' ', "'");
+                              return d.toLocaleDateString(language, { month: 'short', year: '2-digit' }).replace(' ', "'");
                             })() : '---'}
                           </span>
                         )}
@@ -795,11 +812,11 @@ function DashboardContent() {
                         )}
                       </td>
 
-                      <td className="px-2 py-3 sm:px-3 sm:py-4 text-right align-middle font-medium text-foreground/80">${row.totalInvested.toLocaleString()}</td>
+                      <td className="px-2 py-3 sm:px-3 sm:py-4 text-right align-middle font-medium text-foreground/80">${row.totalInvested.toLocaleString(language)}</td>
 
-                      <td className="px-2 py-3 sm:px-3 sm:py-4 text-right align-middle font-bold">${row.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-2 py-3 sm:px-3 sm:py-4 text-right align-middle font-bold">${row.current_price.toLocaleString(language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
 
-                      <td className="px-2 py-3 sm:px-3 sm:py-4 text-right align-middle font-semibold">${row.currentValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+                      <td className="px-2 py-3 sm:px-3 sm:py-4 text-right align-middle font-semibold">${row.currentValue.toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
 
                       <td className="px-2 py-3 sm:px-3 sm:py-4 text-right align-middle">
                         {/* Current ROI % */}
@@ -811,7 +828,7 @@ function DashboardContent() {
                       <td className="px-2 py-3 sm:px-3 sm:py-4 text-right align-middle font-bold border-l border-border/10">
                         {/* Total Return */}
                         <span className={row.totalReturn >= 0 ? 'text-primary' : 'text-destructive'}>
-                          {row.totalReturn >= 0 ? '+' : '-'}${Math.abs(row.totalReturn).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          {row.totalReturn >= 0 ? '+' : '-'}${Math.abs(row.totalReturn).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </span>
                       </td>
 
@@ -822,7 +839,7 @@ function DashboardContent() {
                             <input type="number" value={editForm.price_aim} onChange={e => setEditForm(p => ({ ...p, price_aim: parseFloat(e.target.value) || 0 }))} className="w-20 bg-background border rounded px-2 py-1 text-right focus:border-primary focus:outline-none" />
                           </div>
                         ) : (
-                          <span>{row.price_aim ? `$${row.price_aim.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}</span>
+                          <span>{row.price_aim ? `$${row.price_aim.toLocaleString(language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}</span>
                         )}
                       </td>
 
@@ -838,7 +855,7 @@ function DashboardContent() {
                         {/* Return Target */}
                         {row.price_aim ? (
                           <span className={row.returnTarget >= 0 ? 'text-primary' : 'text-destructive'}>
-                            {row.returnTarget >= 0 ? '+' : '-'}${Math.abs(row.returnTarget).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            {row.returnTarget >= 0 ? '+' : '-'}${Math.abs(row.returnTarget).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </span>
                         ) : '---'}
                       </td>
@@ -848,8 +865,8 @@ function DashboardContent() {
 
                 {metrics.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
-                      No investments tracked yet. Click "Add Investment" to build your portfolio.
+                    <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
+                      {t('dashboard.noInvestments')}
                     </td>
                   </tr>
                 )}
@@ -859,7 +876,7 @@ function DashboardContent() {
               {metrics.length > 0 && (
                 <tfoot className="bg-muted/30 border-t border-border font-bold">
                   <tr>
-                    <td colSpan={5} className="px-2 py-3 sm:px-3 sm:py-4 text-left">Total</td>
+                    <td colSpan={5} className="px-2 py-3 sm:px-3 sm:py-4 text-left">{t('common.total')}</td>
                     <td className="px-2 py-3 sm:px-3 sm:py-4 text-right">${grandTotalInvested.toLocaleString()}</td>
                     <td colSpan={2} className="px-2 py-3 sm:px-3 sm:py-4 text-right">${grandTotalCurrentValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
 
@@ -871,7 +888,7 @@ function DashboardContent() {
 
                     <td className="px-2 py-3 sm:px-3 sm:py-4 text-right border-l border-border/10">
                       <span className={grandTotalReturn >= 0 ? 'text-primary' : 'text-destructive'}>
-                        {grandTotalReturn >= 0 ? '+' : '-'}${Math.abs(grandTotalReturn).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        {grandTotalReturn >= 0 ? '+' : '-'}${Math.abs(grandTotalReturn).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </span>
                     </td>
 
@@ -879,7 +896,7 @@ function DashboardContent() {
 
                     <td className="px-2 py-3 sm:px-3 sm:py-4 text-right bg-primary/5">
                       <span className={grandTotalTargetReturn >= 0 ? 'text-primary' : 'text-destructive'}>
-                        {grandTotalTargetReturn >= 0 ? '+' : '-'}${Math.abs(grandTotalTargetReturn).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        {grandTotalTargetReturn >= 0 ? '+' : '-'}${Math.abs(grandTotalTargetReturn).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </span>
                     </td>
                   </tr>
@@ -902,14 +919,14 @@ function DashboardContent() {
               className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors bg-muted/20 hover:bg-muted/50 px-3 py-1.5 rounded-lg border border-transparent hover:border-border/50"
             >
               <FileText className="w-3.5 h-3.5" />
-              Export as PDF
+              {t('common.exportPdf')}
             </button>
             <button
               onClick={downloadPortfolioAsCSV}
               className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors bg-muted/20 hover:bg-muted/50 px-3 py-1.5 rounded-lg border border-transparent hover:border-border/50"
             >
               <Download className="w-3.5 h-3.5" />
-              Export as CSV
+              {t('common.downloadCsv')}
             </button>
           </div>
         )}
@@ -919,11 +936,12 @@ function DashboardContent() {
 }
 
 export default function Home() {
+  const { t } = useTranslation();
   return (
     <Suspense fallback={
       <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-4">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="text-muted-foreground font-medium">Loading Dashboard...</p>
+        <p className="text-muted-foreground font-medium">{t('dashboard.loadingPortfolio')}</p>
       </div>
     }>
       <DashboardContent />

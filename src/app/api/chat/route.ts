@@ -52,6 +52,8 @@ export async function POST(request: Request) {
         // Prepare the system prompt
         const systemPrompt = `Act as a professional, unbiased investment analyst providing educational information only. Evaluate this investment for an individual investor.
 
+        IMPORTANT: Respond ALWAYS in ${language === 'fr' ? 'French' : 'English'}.
+
 Investment: [NAME OF STOCK / ETF / CRYPTO / PROPERTY / FUND]
 
 Provide your answer in this structure and keep response strictly between 500 to 700 words only:

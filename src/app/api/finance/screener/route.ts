@@ -3,44 +3,20 @@ import YahooFinance from 'yahoo-finance2';
 
 const yahooFinance = new YahooFinance();
 
-// Expanded Curated Universes (Top Stocks by Market Cap per Region)
-const REGION_UNIVERSES: Record<string, string[]> = {
-    "US": [
-        'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'BRK-B', 'LLY', 'AVGO', 'JPM', 'UNH', 'V', 'XOM', 'MA', 'JNJ', 'PG', 'HD', 'COST', 'MRK',
-        'ABBV', 'CVX', 'CRM', 'AMD', 'PEP', 'BAC', 'KO', 'LIN', 'TMO', 'WMT', 'MCD', 'ACN', 'ADBE', 'ABT', 'DIS', 'CSCO', 'TXN', 'INTC', 'CMCSA', 'VZ',
-        'PFE', 'NKE', 'NEE', 'PM', 'AMGN', 'IBM', 'HON', 'QCOM', 'UNP', 'CAT', 'BA', 'SPGI', 'RTX', 'LOW', 'GE', 'GS', 'SYK', 'BLK', 'MDT', 'EL',
-        'INTU', 'ISRG', 'NOW', 'TJX', 'AXP', 'C', 'PGR', 'COP', 'MDLZ', 'BKNG', 'ZTS', 'AMAT', 'ADI', 'LRCX', 'CI', 'GILD', 'BMY', 'SLB', 'CVS', 'MMC',
-        'VRTX', 'T', 'REGN', 'DE', 'BDX', 'EOG', 'SO', 'CB', 'BSX', 'LMT', 'PXD', 'ITW', 'CME', 'AON', 'CSX', 'NOC', 'D', 'ICE', 'MU', 'SHW', 'TGT', 'KLAC'
-    ],
-    "France": [
-        'MC.PA', 'OR.PA', 'RMS.PA', 'TTE.PA', 'SAN.PA', 'AIR.PA', 'SU.PA', 'BNP.PA', 'EL.PA', 'DG.PA', 'AI.PA', 'CS.PA', 'SAF.PA', 'ACA.PA', 'LR.PA', 'GLE.PA', 'CA.PA', 'ENGI.PA', 'CAP.PA', 'ORA.PA',
-        'SGO.PA', 'VIV.PA', 'ML.PA', 'RNO.PA', 'PUB.PA', 'VIE.PA', 'FR.PA', 'RI.PA', 'STM.PA', 'HO.PA', 'TEP.PA', 'WLN.PA', 'ALO.PA', 'SW.PA', 'NK.PA', 'KER.PA', 'BN.PA', 'EN.PA', 'FDJ.PA', 'ADP.PA',
-        'AMUN.PA', 'BVI.PA', 'CNP.PA', 'COFA.PA', 'DEC.PA', 'DIM.PA', 'EIF.PA', 'FGR.PA', 'GFC.PA', 'ICAD.PA', 'IPS.PA', 'JCQ.PA', 'KOF.PA', 'LI.PA', 'MMB.PA', 'NEX.PA', 'ORP.PA', 'POM.PA', 'RCO.PA', 'SESL.PA'
-    ],
-    "Germany": [
-        'SAP.DE', 'SIE.DE', 'ALV.DE', 'DTE.DE', 'MRK.DE', 'BMW.DE', 'MBG.DE', 'BAS.DE', 'VOW3.DE', 'MUV2.DE', 'DPW.DE', 'IFX.DE', 'ADS.DE', 'BAYN.DE', 'DBK.DE', 'DHL.DE', 'HEN3.DE', 'RWE.DE', 'SY1.DE', 'FRE.DE',
-        'BEI.DE', 'CBK.DE', 'CON.DE', '1COV.DE', 'DTG.DE', 'EOAN.DE', 'FME.DE', 'HNR1.DE', 'MTX.DE', 'PAH3.DE', 'PUM.DE', 'QIA.DE', 'SHL.DE', 'SRT3.DE', 'ZAL.DE', 'AIXA.DE', 'ARL.DE', 'BOS3.DE', 'CEV.DE', 'EVK.DE',
-        'FPE3.DE', 'FRA.DE', 'G1A.DE', 'GBF.DE', 'HOT.DE', 'KRN.DE', 'LEG.DE', 'MOR.DE', 'NDA.DE', 'NEM.DE', 'O2D.DE', 'PSM.DE', 'RHM.DE', 'SDF.DE', 'SOW.DE', 'TAG.DE', 'TEG.DE', 'UN01.DE', 'WCH.DE'
-    ],
-    "China": [
-        'BABA', 'TCEHY', 'PDD', 'JD', 'BIDU', 'NTES', 'BYDDY', 'NIO', 'LI', 'XPEV', 'BZUN', 'TCOM', 'ZTO', 'YUMC', 'WB', 'VIPS', 'TME', 'TAL', 'SNP', 'PTR',
-        'LFC', 'HNP', 'GDS', 'EDU', 'DAO', 'CZR', 'CEO', 'BGNE', 'BILI', 'ATHM', 'ACH', '600519.SS', '601398.SS', '601857.SS', '601288.SS', '601988.SS', '600036.SS', '601318.SS', '000858.SZ', '300750.SZ'
-    ],
-    "Hong Kong": [
-        '0700.HK', '3690.HK', '0941.HK', '0939.HK', '1398.HK', '3988.HK', '0883.HK', '0005.HK', '2318.HK', '1299.HK', '0388.HK', '1109.HK', '0001.HK', '0823.HK', '0011.HK', '0016.HK', '0267.HK', '0002.HK', '0012.HK', '0066.HK',
-        '0003.HK', '0006.HK', '0083.HK', '0101.HK', '0151.HK', '0175.HK', '0268.HK', '0288.HK', '0316.HK', '0386.HK', '0688.HK', '0762.HK', '0836.HK', '0857.HK', '0868.HK', '0960.HK', '0968.HK', '0992.HK', '1038.HK', '1044.HK',
-        '1088.HK', '1093.HK', '1113.HK', '1177.HK', '1378.HK'
-    ],
-    "Japan": [
-        '7203.T', '6758.T', '9984.T', '6861.T', '8035.T', '9432.T', '8306.T', '6098.T', '4063.T', '9983.T', '4568.T', '8058.T', '8316.T', '6501.T', '6954.T', '6367.T', '6902.T', '7974.T', '7741.T', '4502.T',
-        '8766.T', '8001.T', '6702.T', '8031.T', '4519.T', '6594.T', '4543.T', '8053.T', '6981.T', '9433.T', '8411.T', '3382.T', '4661.T', '4523.T', '7751.T', '7267.T', '9022.T', '9020.T', '4901.T', '7269.T',
-        '5108.T', '8802.T', '8801.T', '7201.T', '6762.T', '4503.T', '8591.T', '4911.T', '9735.T', '1925.T', '6920.T', '4507.T', '1928.T', '9021.T', '2502.T', '3402.T', '6752.T', '6502.T'
-    ],
-    "Singapore": [
-        'D05.SI', 'O39.SI', 'U11.SI', 'Z74.SI', 'V03.SI', 'C38U.SI', 'Y92.SI', 'ME8U.SI', 'A17U.SI', 'BN4.SI', 'M44U.SI', 'N2IU.SI', 'T39.SI', 'F34.SI', 'S68.SI', 'U96.SI', 'C52.SI', 'BS6.SI', 'G13.SI', 'S58.SI',
-        'S63.SI', 'U14.SI', 'J36.SI', 'H78.SI', 'C09.SI', 'C31.SI', 'D01.SI', 'F99.SI', 'O32.SI'
-    ]
-};
+import { REGION_UNIVERSES } from '@/lib/constants';
+
+// News Keywords from Python Analytic logic
+const NEGATIVE_KEYWORDS = [
+    "fraud", "investigation", "probe", "bankruptcy", "default",
+    "liquidity crisis", "restatement", "accounting issue",
+    "lawsuit", "regulatory action", "downgrade"
+];
+
+const POSITIVE_KEYWORDS = [
+    "buyback", "spinoff", "asset sale", "restructuring",
+    "turnaround", "earnings beat", "debt reduction",
+    "dividend increase", "guidance raise"
+];
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -60,9 +36,10 @@ export async function GET(request: Request) {
         const rawResults = await Promise.all(tickers.map(async (sym) => {
             try {
                 // We fetch historical data (for sparkline) and quoteSummary (for all key stats + sector)
-                const [history, qs] = await Promise.all([
+                const [history, qs, newsSearch] = await Promise.all([
                     yahooFinance.historical(sym, { period1: start, period2: end, interval: '1d' }).catch(() => []),
-                    yahooFinance.quoteSummary(sym, { modules: ['price', 'assetProfile', 'defaultKeyStatistics', 'financialData', 'summaryDetail'] }).catch(() => null)
+                    yahooFinance.quoteSummary(sym, { modules: ['price', 'assetProfile', 'defaultKeyStatistics', 'financialData', 'summaryDetail'] }).catch(() => null),
+                    yahooFinance.search(sym, { newsCount: 10 }).catch(() => ({ news: [] }))
                 ]);
 
                 if (!qs || !qs.price) return null;
@@ -79,7 +56,25 @@ export async function GET(request: Request) {
                     }
                 }
 
-                const calculateScores = (qs: any) => {
+                const calculateNewsScore = (newsItems: any[]) => {
+                    let score = 0;
+                    if (!newsItems) return 0;
+
+                    newsItems.forEach(item => {
+                        const title = (item.title || "").toLowerCase();
+                        NEGATIVE_KEYWORDS.forEach((kw: string) => {
+                            if (title.includes(kw)) score -= 3;
+                        });
+                        POSITIVE_KEYWORDS.forEach((kw: string) => {
+                            if (title.includes(kw)) score += 3;
+                        });
+                    });
+
+                    // Clamp to [-20, 20] as per Python logic
+                    return Math.max(-20, Math.min(20, score));
+                };
+
+                const calculateScores = (qs: any, newsScore: number) => {
                     let safety = 0;
                     let mispricing = 0;
 
@@ -128,11 +123,13 @@ export async function GET(request: Request) {
                     return {
                         safety: Math.min(40, safety),
                         mispricing: Math.min(40, mispricing),
-                        total: Math.min(80, safety + mispricing)
+                        news: newsScore,
+                        total: Math.max(0, Math.min(100, safety + mispricing + newsScore))
                     };
                 };
 
-                const scores = calculateScores(qs);
+                const newsScore = calculateNewsScore(newsSearch?.news || []);
+                const scores = calculateScores(qs, newsScore);
 
                 // Extract key stats safely
                 const pe = qs?.summaryDetail?.trailingPE || qs?.summaryDetail?.forwardPE || null;

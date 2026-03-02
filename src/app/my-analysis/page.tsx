@@ -14,15 +14,18 @@ export default function MyAnalysisPage() {
     const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
     const [selectedAnalysis, setSelectedAnalysis] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const supabase = createClient();
+    const [supabase, setSupabase] = useState<any>(null);
 
     useEffect(() => {
+        const client = createClient();
+        setSupabase(client);
+
         const loadSaved = async () => {
             setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await client.auth.getUser();
 
             if (user) {
-                const { data, error } = await supabase
+                const { data, error } = await client
                     .from("saved_analyses")
                     .select("*")
                     .order("timestamp", { ascending: false });
@@ -30,13 +33,24 @@ export default function MyAnalysisPage() {
                 if (!error && data) {
                     setSavedAnalyses(data);
                 }
+            } else {
+                // Guest Mode: Load from localStorage
+                const localSaved = localStorage.getItem('fizenhive_saved_analyses_demo');
+                if (localSaved) {
+                    const data = JSON.parse(localSaved);
+                    // Sort by timestamp descending
+                    data.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                    setSavedAnalyses(data);
+                } else {
+                    setSavedAnalyses([]);
+                }
             }
             setLoading(false);
         };
 
         loadSaved();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, _session) => {
+        const { data: { subscription } } = client.auth.onAuthStateChange((_event, _session) => {
             loadSaved();
         });
 
@@ -47,18 +61,34 @@ export default function MyAnalysisPage() {
         const confirmDelete = confirm(`Are you sure you want to delete ${ticker} from your saved analyses?`);
         if (!confirmDelete) return;
 
-        const { error } = await supabase
-            .from("saved_analyses")
-            .delete()
-            .eq("id", id);
+        const { data: { user } } = await supabase.auth.getUser();
 
-        if (!error) {
-            setSavedAnalyses((prev: any[]) => prev.filter((item: any) => item.id !== id));
-            if (selectedAnalysis?.id === id) {
-                setSelectedAnalysis(null);
+        if (user) {
+            const { error } = await supabase
+                .from("saved_analyses")
+                .delete()
+                .eq("id", id);
+
+            if (!error) {
+                setSavedAnalyses((prev: any[]) => prev.filter((item: any) => item.id !== id));
+                if (selectedAnalysis?.id === id) {
+                    setSelectedAnalysis(null);
+                }
+            } else {
+                alert("Failed to delete analysis: " + error.message);
             }
         } else {
-            alert("Failed to delete analysis: " + error.message);
+            // Guest Mode: Delete from localStorage
+            const localSaved = localStorage.getItem('fizenhive_saved_analyses_demo');
+            if (localSaved) {
+                let savedList = JSON.parse(localSaved);
+                savedList = savedList.filter((item: any) => item.id !== id);
+                localStorage.setItem('fizenhive_saved_analyses_demo', JSON.stringify(savedList));
+                setSavedAnalyses(savedList);
+                if (selectedAnalysis?.id === id) {
+                    setSelectedAnalysis(null);
+                }
+            }
         }
     };
 

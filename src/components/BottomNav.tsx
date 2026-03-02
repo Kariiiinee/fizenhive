@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, LineChart, Bookmark, SlidersHorizontal, MessageCircle } from "lucide-react";
+import { Home, LineChart, Bookmark, SlidersHorizontal, MessageCircle, Beaker } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { t } = useTranslation();
 
   const navItems = [
-    { name: "Portfolio", href: "/", icon: Home },
-    { name: "Analysis", href: "/analysis", icon: LineChart },
-    { name: "My Analysis", href: "/my-analysis", icon: Bookmark, isCenter: false },
-    { name: "Screener", href: "/screener", icon: SlidersHorizontal },
-    { name: "AI Assistant", href: "/chat", icon: MessageCircle },
+    { name: t('common.portfolio'), href: "/", icon: Home },
+    { name: t('common.analysis'), href: "/analysis", icon: LineChart },
+    { name: t('lab.title'), href: "/lab", icon: Beaker },
+    { name: t('common.saved'), href: "/my-analysis", icon: Bookmark },
+    { name: t('common.screener'), href: "/screener", icon: SlidersHorizontal },
+    { name: t('common.aiAssistant'), href: "/chat", icon: MessageCircle },
   ];
 
   return (
@@ -22,7 +25,7 @@ export function BottomNav() {
           const Icon = item.icon;
           const isActive = pathname === item.href;
 
-          if (index === 2) {
+          if (index === 3) {
             // Center prominent button
             return (
               <Link

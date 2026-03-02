@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Mic, Paperclip, Send, Bot, User } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useTranslation } from "@/lib/i18n";
+import { createClient } from "@/lib/supabase/client";
+import { isGuestLimitReached, incrementGuestUsage } from "@/lib/guest-limit";
+import { GuestLimitModal } from "@/components/GuestLimitModal";
 
 type Message = {
     id: string;
@@ -13,19 +17,31 @@ type Message = {
 };
 
 export default function ChatPage() {
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: "1",
-            role: "assistant",
-            content: "Hello! I'm FizenHive AI. How can I help you analyze your portfolio or the markets today?",
-        }
-    ]);
+    const { t, language } = useTranslation();
+    const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [supabase] = useState(() => createClient());
+    const [showLimitModal, setShowLimitModal] = useState(false);
+
+    // Initial greeting translation
+    useState(() => {
+        setMessages([{
+            id: "1",
+            role: "assistant",
+            content: t('chat.welcome'),
+        }]);
+    });
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim() || isLoading) return;
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user && isGuestLimitReached('chat')) {
+            setShowLimitModal(true);
+            return;
+        }
 
         // Add user message
         const newUserMsg: Message = { id: Date.now().toString(), role: "user", content: input };
@@ -40,7 +56,7 @@ export default function ChatPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: updatedMessages,
-                    language: navigator.language.startsWith('fr') ? 'fr' : 'en'
+                    language: language
                 }),
             });
 
@@ -55,12 +71,13 @@ export default function ChatPage() {
                 role: "assistant",
                 content: data.content,
             }]);
+            if (!user) incrementGuestUsage('chat');
         } catch (error: any) {
             console.error("Chat error:", error);
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
-                content: "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again later.",
+                content: t('chat.error'),
                 isError: true
             }]);
         } finally {
@@ -69,15 +86,20 @@ export default function ChatPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)] pt-20 p-4 space-y-4">
+        <div className="flex flex-col h-[calc(100vh-4rem)] pt-20 p-4 space-y-4 relative">
+            <GuestLimitModal
+                isOpen={showLimitModal}
+                onClose={() => setShowLimitModal(false)}
+                feature="chat"
+            />
             <header className="flex items-center gap-2 py-1 shrink-0">
                 <div className="relative">
                     <Bot className="w-6 h-6 text-primary" />
                     <span className="absolute bottom-0 right-0 w-2 h-2 bg-primary rounded-full border-2 border-background"></span>
                 </div>
                 <div>
-                    <h2 className="text-base font-semibold tracking-tight leading-none">FizenHive AI</h2>
-                    <p className="text-[11px] text-muted-foreground font-medium mt-1">Online</p>
+                    <h2 className="text-base font-semibold tracking-tight leading-none">{t('chat.title')}</h2>
+                    <p className="text-[11px] text-muted-foreground font-medium mt-1">{t('chat.online')}</p>
                 </div>
             </header>
 
@@ -85,7 +107,7 @@ export default function ChatPage() {
             <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm text-foreground mb-2 flex gap-2 items-start shrink-0">
                 <div className="text-primary mt-0.5">ℹ️</div>
                 <p>
-                    <strong>Educational Purposes Only:</strong> As FizenHive AI, I provide neutral, educational information to help you understand companies and financial concepts. I do not provide investment advice or recommendations to buy, sell, or hold.
+                    {t('chat.disclaimer')}
                 </p>
             </div>
 
@@ -137,7 +159,7 @@ export default function ChatPage() {
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Ask Fizenhive anything..."
+                        placeholder={t('chat.inputPlaceholder')}
                         className="w-full bg-card border border-border rounded-full py-3.5 pl-12 pr-24 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-foreground placeholder:text-muted-foreground"
                     />
                     <div className="absolute right-2 flex items-center gap-1">
