@@ -1,7 +1,7 @@
 
 "use client";
 
-import { X, Sparkles, Bot, ShieldAlert, LogIn } from "lucide-react";
+import { X, Sparkles, Bot, ShieldAlert, LogIn, Beaker } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 interface GuestLimitModalProps {
     isOpen: boolean;
     onClose: () => void;
-    feature: 'analysis' | 'screener' | 'chat';
+    feature: 'analysis' | 'screener' | 'chat' | 'lab';
 }
 
 export function GuestLimitModal({ isOpen, onClose, feature }: GuestLimitModalProps) {
@@ -20,7 +20,8 @@ export function GuestLimitModal({ isOpen, onClose, feature }: GuestLimitModalPro
     const featureIcon = {
         analysis: <Sparkles className="w-8 h-8 text-primary" />,
         screener: <ShieldAlert className="w-8 h-8 text-primary" />,
-        chat: <Bot className="w-8 h-8 text-primary" />
+        chat: <Bot className="w-8 h-8 text-primary" />,
+        lab: <Beaker className="w-8 h-8 text-primary" />
     }[feature];
 
     const featureTitle = t(`limits.${feature}.title`);
