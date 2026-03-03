@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, User, Activity, PieChart, MessageSquare, LogOut, Beaker } from "lucide-react";
+import { Menu, User, Activity, PieChart, MessageSquare, LogOut, Beaker, LineChart } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/login/actions";
 import { InstallPWA } from "./InstallPWA";
@@ -91,6 +91,14 @@ export function Header() {
                                     >
                                         <User className="w-4 h-4 text-muted-foreground" />
                                         {t('common.portfolio')}
+                                    </Link>
+                                    <Link
+                                        href="/analysis"
+                                        onClick={() => setIsNavMenuOpen(false)}
+                                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
+                                    >
+                                        <LineChart className="w-4 h-4 text-muted-foreground" />
+                                        {t('common.analysis')}
                                     </Link>
 
                                     <Link
