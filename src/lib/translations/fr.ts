@@ -57,6 +57,7 @@ export const fr = {
         loadingDashboard: "Chargement du tableau de bord...",
         loadingPortfolio: "Chargement du portefeuille...",
         noInvestments: "Aucun investissement ajouté pour le moment.",
+        confirmDeletePortfolio: "Êtes-vous sûr de vouloir supprimer ce portefeuille et toutes ses positions ?",
     },
     analysis: {
         searchPlaceholder: "Recherchez un ticker ou une entreprise (ex: AAPL, LVMH)",

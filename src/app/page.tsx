@@ -253,6 +253,39 @@ function DashboardContent() {
     }
   };
 
+  const deletePortfolio = async (id: string) => {
+    if (!window.confirm(t('dashboard.confirmDeletePortfolio') || "Are you sure you want to delete this portfolio and all its holdings?")) return;
+
+    const updatedHoldings = holdings.filter(h => (h.portfolio_id || 'Main') !== id);
+    setHoldings(updatedHoldings);
+
+    const updatedTabs = portfolios.filter(p => p.id !== id);
+
+    if (updatedTabs.length === 0) {
+      updatedTabs.push({ id: 'Main', name: t('dashboard.mainPortfolio') || 'Main' });
+    }
+
+    setPortfolios(updatedTabs);
+    localStorage.setItem('fizenhive_tabs', JSON.stringify(updatedTabs));
+
+    if (!userId) {
+      saveToStorageOrDb(updatedHoldings);
+    }
+
+    if (userId && supabase) {
+      if (id === 'Main') {
+        const { error: e1 } = await supabase.from('portfolio_holdings').delete().is('portfolio_id', null).eq('user_id', userId);
+        const { error: e2 } = await supabase.from('portfolio_holdings').delete().eq('portfolio_id', 'Main').eq('user_id', userId);
+      } else {
+        const { error } = await supabase.from('portfolio_holdings').delete().eq('portfolio_id', id).eq('user_id', userId);
+      }
+    }
+
+    if (activePortfolioId === id) {
+      setActivePortfolioId(updatedTabs[0].id);
+    }
+  };
+
   // Portfolio Tab Management
   const createPortfolioTab = (e: React.FormEvent) => {
     e.preventDefault();
@@ -539,11 +572,19 @@ function DashboardContent() {
                       className={`px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 group ${activePortfolioId === p.id ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted/50 text-muted-foreground hover:bg-muted'}`}
                     >
                       <span>{p.name}</span>
-                      {activePortfolioId === p.id && p.id !== 'Main' && (
-                        <Edit2
-                          onClick={(e) => { e.stopPropagation(); startRenamingTab(p.id, p.name); }}
-                          className="w-3 h-3 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
-                        />
+                      {activePortfolioId === p.id && (
+                        <div className="flex items-center gap-1.5 ml-1">
+                          {p.id !== 'Main' && (
+                            <Edit2
+                              onClick={(e) => { e.stopPropagation(); startRenamingTab(p.id, p.name); }}
+                              className="w-3.5 h-3.5 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                            />
+                          )}
+                          <Trash2
+                            onClick={(e) => { e.stopPropagation(); deletePortfolio(p.id); }}
+                            className="w-3.5 h-3.5 opacity-70 hover:opacity-100 transition-opacity cursor-pointer text-destructive/80 hover:text-destructive"
+                          />
+                        </div>
                       )}
                     </button>
                   )}

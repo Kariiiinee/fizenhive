@@ -57,6 +57,7 @@ export const en = {
         loadingDashboard: "Loading Dashboard...",
         loadingPortfolio: "Loading Portfolio...",
         noInvestments: "No investments added yet.",
+        confirmDeletePortfolio: "Are you sure you want to delete this portfolio and all its holdings?",
     },
     analysis: {
         searchPlaceholder: "Search ticker or company (e.g. AAPL, LVMH)",
