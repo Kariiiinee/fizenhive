@@ -230,14 +230,14 @@ export const en = {
             description: "Your AI conversation has reached its limit. Sign in to unlock unlimited discussions."
         },
         lab: {
-            title: "Discovery Lab Limited",
+            title: "Lab Limited",
             description: "Explore more market opportunities by creating an account. Guests are limited to 5 scans per session."
         },
         loginButton: "Sign In / Create Account",
         maybeLater: "Maybe Later"
     },
     lab: {
-        title: "Discovery Lab",
+        title: "Lab",
         subtitle: "Uncovering emerging trends, small-cap gems, and structural shifts.",
         scanButton: "Trigger Discovery Scan",
         scanning: "Scanning Market...",

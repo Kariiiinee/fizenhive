@@ -230,14 +230,14 @@ export const fr = {
             description: "Votre conversation avec l'IA a atteint sa limite. Connectez-vous pour débloquer des discussions illimitées."
         },
         lab: {
-            title: "Laboratoire de Découverte Limité",
+            title: "Lab Limité",
             description: "Explorez plus d'opportunités de marché en créant un compte. Les invités sont limités à 5 scans par session."
         },
         loginButton: "Se connecter / Créer un compte",
         maybeLater: "Plus tard"
     },
     lab: {
-        title: "Laboratoire de Découverte",
+        title: "Lab",
         subtitle: "Découvrir les tendances émergentes, les pépites small-cap et les changements structurels.",
         scanButton: "Lancer le Scan de Découverte",
         scanning: "Analyse du Marché...",
