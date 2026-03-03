@@ -245,7 +245,8 @@ export const en = {
         sections: {
             smallCaps: {
                 title: "Small Cap Hidden Potential",
-                description: "Stocks under $1B with accelerating growth and solid cash runway."
+                description: "Stocks under $1B with accelerating growth and solid cash runway.",
+                noneFound: "No small cap gems identified in this scan. Try another region or check back later."
             },
             relativeOutliers: {
                 title: "Relative Ranking Outliers",

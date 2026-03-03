@@ -177,9 +177,18 @@ export default function LabPage() {
                                 <p className="text-muted-foreground">{t('lab.sections.smallCaps.description')}</p>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {data.smallCaps.map((stock, i) => (
-                                    <DiscoveryCard key={stock.ticker} stock={stock} type="small_cap" index={i} />
-                                ))}
+                                {data.smallCaps.length > 0 ? (
+                                    data.smallCaps.map((stock, i) => (
+                                        <DiscoveryCard key={stock.ticker} stock={stock} type="small_cap" index={i} />
+                                    ))
+                                ) : (
+                                    <div className="col-span-full py-12 border-2 border-dashed border-border rounded-2xl bg-secondary/10 flex flex-col items-center justify-center text-center px-4">
+                                        <Boxes className="text-muted-foreground/20 mb-3" size={40} />
+                                        <p className="text-muted-foreground italic text-sm max-w-sm">
+                                            {t('lab.sections.smallCaps.noneFound')}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </section>
 
@@ -478,9 +487,6 @@ function RadarList({
                                 <button className="p-1 hover:bg-primary/10 rounded-full text-muted-foreground/40 hover:text-primary transition-colors">
                                     <Star size={12} />
                                 </button>
-                                <Link href={`/analysis?symbol=${s.ticker}`}>
-                                    <ArrowUpRight size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </Link>
                             </div>
                         </div>
                     </div>

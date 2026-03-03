@@ -245,7 +245,8 @@ export const fr = {
         sections: {
             smallCaps: {
                 title: "Potentiel Caché Small-Cap",
-                description: "Actions < 1Md$ avec une croissance accélérée et une trésorerie solide."
+                description: "Actions < 1Md$ avec une croissance accélérée et une trésorerie solide.",
+                noneFound: "Aucune pépite small-cap identifiée. Essayez une autre région ou revenez plus tard."
             },
             relativeOutliers: {
                 title: "Outliers de Classement Relatif",
