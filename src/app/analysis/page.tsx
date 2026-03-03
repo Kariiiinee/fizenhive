@@ -38,6 +38,7 @@ function AnalysisContent() {
     const [error, setError] = useState("");
     const [supabase, setSupabase] = useState<any>(null);
     const [showLimitModal, setShowLimitModal] = useState(false);
+    const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
 
     useEffect(() => {
         setSupabase(createClient());
@@ -635,16 +636,23 @@ function AnalysisContent() {
                                     value: stockData.regularMarketVolume ? (stockData.regularMarketVolume / 1e6).toFixed(1) + 'M' : '---',
                                 }
                             ].map((stat, idx) => (
-                                <div key={idx} className="bg-card border border-border rounded-xl p-3 shadow-sm relative group cursor-help transition-colors hover:bg-muted/50">
+                                <div
+                                    key={idx}
+                                    className="bg-card border border-border rounded-xl p-3 shadow-sm relative group cursor-help transition-colors hover:bg-muted/50"
+                                    onClick={() => setActiveTooltip(activeTooltip === idx ? null : idx)}
+                                >
                                     <div className="flex items-center justify-between mb-1.5">
                                         <p className="text-xs text-muted-foreground font-medium">{t(`analysis.stats.${stat.key}.label`)}</p>
-                                        <Info className="w-3.5 h-3.5 text-muted-foreground/60 transition-colors group-hover:text-primary" />
+                                        <Info className={`w-3.5 h-3.5 transition-colors ${activeTooltip === idx ? 'text-primary' : 'text-muted-foreground/60 group-hover:text-primary'}`} />
                                     </div>
                                     <p className="font-semibold text-foreground">
                                         {stat.value}
                                     </p>
-                                    {/* Tooltip for desktop hover */}
-                                    <div className="absolute left-1/2 -translate-x-1/2 bottom-[108%] w-[210px] p-3 bg-foreground text-background text-xs leading-relaxed rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
+                                    {/* Tooltip for desktop hover & mobile toggle */}
+                                    <div className={`absolute left-1/2 -translate-x-1/2 bottom-[108%] w-[210px] p-3 bg-foreground text-background text-xs leading-relaxed rounded-xl shadow-2xl transition-all z-50 pointer-events-none ${activeTooltip === idx
+                                            ? 'opacity-100 visible'
+                                            : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
+                                        }`}>
                                         <span className="font-semibold text-primary/90 mb-1 block uppercase tracking-wider text-[10px]">{t(`analysis.stats.${stat.key}.label`)}</span>
                                         {t(`analysis.stats.${stat.key}.def`)}
                                         <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-foreground rotate-45"></div>

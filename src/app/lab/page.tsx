@@ -39,6 +39,7 @@ export default function LabPage() {
     const [error, setError] = useState<string | null>(null);
     const [activeSection, setActiveSection] = useState("overview");
     const [showLimitModal, setShowLimitModal] = useState(false);
+    const [showOutlierTooltip, setShowOutlierTooltip] = useState(false);
     const [supabase] = useState(() => createClient());
 
     const countries = Object.keys(REGION_UNIVERSES);
@@ -199,8 +200,15 @@ export default function LabPage() {
                                     <Target className="text-blue-500" />
                                     <span>{t('lab.sections.relativeOutliers.title')}</span>
                                     <div className="group/info relative inline-block">
-                                        <Info size={16} className="text-muted-foreground/50 hover:text-primary cursor-help transition-colors" />
-                                        <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[10px] leading-relaxed text-muted-foreground opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all z-50 pointer-events-none">
+                                        <Info
+                                            size={16}
+                                            className={`cursor-help transition-colors ${showOutlierTooltip ? 'text-primary' : 'text-muted-foreground/50 hover:text-primary'}`}
+                                            onClick={() => setShowOutlierTooltip(!showOutlierTooltip)}
+                                        />
+                                        <div className={`absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[10px] leading-relaxed text-muted-foreground transition-all z-50 pointer-events-none ${showOutlierTooltip
+                                                ? 'opacity-100 visible'
+                                                : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
+                                            }`}>
                                             <p className="font-bold text-primary mb-1 uppercase tracking-tight">Technical Methodology</p>
                                             {t('lab.sections.relativeOutliers.explanation')}
                                         </div>
