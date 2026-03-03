@@ -13,7 +13,6 @@ export function BottomNav() {
     { name: t('common.portfolio'), href: "/", icon: Home },
     { name: t('common.analysis'), href: "/analysis", icon: LineChart },
     { name: t('lab.title'), href: "/lab", icon: Beaker },
-    { name: t('common.saved'), href: "/my-analysis", icon: Bookmark },
     { name: t('common.screener'), href: "/screener", icon: SlidersHorizontal },
     { name: t('common.aiAssistant'), href: "/chat", icon: MessageCircle },
   ];
@@ -25,8 +24,8 @@ export function BottomNav() {
           const Icon = item.icon;
           const isActive = pathname === item.href;
 
-          if (index === 3) {
-            // Center prominent button
+          if (index === 2) {
+            // Lab is now the center prominent button (index 2 in a 5-item list)
             return (
               <Link
                 key={item.href}

@@ -92,14 +92,7 @@ export function Header() {
                                         <User className="w-4 h-4 text-muted-foreground" />
                                         {t('common.portfolio')}
                                     </Link>
-                                    <Link
-                                        href="/my-analysis"
-                                        onClick={() => setIsNavMenuOpen(false)}
-                                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
-                                    >
-                                        <PieChart className="w-4 h-4 text-muted-foreground" />
-                                        {t('common.saved')}
-                                    </Link>
+
                                     <Link
                                         href="/screener"
                                         onClick={() => setIsNavMenuOpen(false)}

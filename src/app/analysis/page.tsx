@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense } from "react";
 import {
     ArrowUpRight, ArrowDownRight, Search, Loader2, Bot,
     ShieldAlert, Sparkles, TrendingUp, AlertTriangle,
-    Bookmark, BookmarkCheck, Info, Download, FileText
+    Bookmark, BookmarkCheck, Info, Download, FileText,
+    Trash2, PieChart, Calendar, X, Bot as BotIcon
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -40,9 +41,53 @@ function AnalysisContent() {
     const [showLimitModal, setShowLimitModal] = useState(false);
     const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
 
+    // My Analysis Integration
+    const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
+    const [selectedSavedAnalysis, setSelectedSavedAnalysis] = useState<any>(null);
+    const [loadingSaved, setLoadingSaved] = useState(false);
+
     useEffect(() => {
         setSupabase(createClient());
     }, []);
+
+    const loadSavedAnalyses = async () => {
+        if (!supabase) return;
+        setLoadingSaved(true);
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+            const { data, error } = await supabase
+                .from("saved_analyses")
+                .select("*")
+                .order("timestamp", { ascending: false });
+
+            if (!error && data) {
+                setSavedAnalyses(data);
+            }
+        } else {
+            // Guest Mode: Load from localStorage
+            const localSaved = localStorage.getItem('fizenhive_saved_analyses_demo');
+            if (localSaved) {
+                const data = JSON.parse(localSaved);
+                data.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                setSavedAnalyses(data);
+            } else {
+                setSavedAnalyses([]);
+            }
+        }
+        setLoadingSaved(false);
+    };
+
+    useEffect(() => {
+        loadSavedAnalyses();
+
+        if (supabase) {
+            const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+                loadSavedAnalyses();
+            });
+            return () => subscription.unsubscribe();
+        }
+    }, [supabase]);
 
     useEffect(() => {
         const checkSavedStatus = async () => {
@@ -115,6 +160,7 @@ function AnalysisContent() {
                 setSavedId(newId);
             }
             localStorage.setItem('fizenhive_saved_analyses_demo', JSON.stringify(savedList));
+            loadSavedAnalyses(); // Refresh integrated section
             return;
         }
 
@@ -143,6 +189,41 @@ function AnalysisContent() {
             if (!error && data) {
                 setIsSaved(true);
                 setSavedId(data.id);
+            }
+        }
+        loadSavedAnalyses(); // Refresh integrated section
+    };
+
+    const deleteSavedAnalysis = async (ticker: string, id: string) => {
+        const confirmDelete = confirm(`Are you sure you want to delete ${ticker} from your saved analyses?`);
+        if (!confirmDelete) return;
+
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+            const { error } = await supabase
+                .from("saved_analyses")
+                .delete()
+                .eq("id", id);
+
+            if (!error) {
+                setSavedAnalyses((prev) => prev.filter((item) => item.id !== id));
+                if (ticker === stockData?.symbol) {
+                    setIsSaved(false);
+                    setSavedId(null);
+                }
+            }
+        } else {
+            const localSaved = localStorage.getItem('fizenhive_saved_analyses_demo');
+            if (localSaved) {
+                let savedList = JSON.parse(localSaved);
+                savedList = savedList.filter((item: any) => item.id !== id);
+                localStorage.setItem('fizenhive_saved_analyses_demo', JSON.stringify(savedList));
+                setSavedAnalyses(savedList);
+                if (ticker === stockData?.symbol) {
+                    setIsSaved(false);
+                    setSavedId(null);
+                }
             }
         }
     };
@@ -650,8 +731,8 @@ function AnalysisContent() {
                                     </p>
                                     {/* Tooltip for desktop hover & mobile toggle */}
                                     <div className={`absolute left-1/2 -translate-x-1/2 bottom-[108%] w-[210px] p-3 bg-foreground text-background text-xs leading-relaxed rounded-xl shadow-2xl transition-all z-50 pointer-events-none ${activeTooltip === idx
-                                            ? 'opacity-100 visible'
-                                            : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
+                                        ? 'opacity-100 visible'
+                                        : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
                                         }`}>
                                         <span className="font-semibold text-primary/90 mb-1 block uppercase tracking-wider text-[10px]">{t(`analysis.stats.${stat.key}.label`)}</span>
                                         {t(`analysis.stats.${stat.key}.def`)}
@@ -680,6 +761,172 @@ function AnalysisContent() {
                             <FileText className="w-4 h-4" /> {t('common.exportPdf')}
                         </button>
                     </div>
+
+                    {/* Integrated My Analysis Section */}
+                    <section className="mt-12 border-t border-border pt-10">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <PieChart className="w-6 h-6 text-primary" />
+                                {t('common.saved')}
+                            </h3>
+                            <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                                {savedAnalyses.length} {t('common.total')}
+                            </div>
+                        </div>
+
+                        {loadingSaved ? (
+                            <div className="flex justify-center py-12">
+                                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : savedAnalyses.length === 0 ? (
+                            <div className="text-center py-12 bg-muted/20 border border-dashed border-border rounded-2xl">
+                                <p className="text-sm text-muted-foreground">{t('analysis.noSavedAnalyses') || "No recently saved analyses."}</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {savedAnalyses.slice(0, 6).map((item, idx) => {
+                                    const date = item.timestamp ? new Date(item.timestamp) : new Date();
+                                    const insight = item.insights_data || item.insightsData;
+
+                                    return (
+                                        <div key={idx} className="bg-card border border-border rounded-2xl p-4 shadow-sm relative group hover:shadow-md transition-all">
+                                            <div className="flex justify-between items-start mb-3 border-b border-border/50 pb-3">
+                                                <div>
+                                                    <h4 className="text-lg font-bold text-foreground">{item.ticker}</h4>
+                                                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                        <Calendar className="w-3 h-3" /> {format(date, "MMM dd, yyyy")}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => setSelectedSavedAnalysis(item)}
+                                                        className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors"
+                                                    >
+                                                        VIEW
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteSavedAnalysis(item.ticker, item.id)}
+                                                        className="text-muted-foreground hover:text-destructive p-1 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {insight && (
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div className="bg-background rounded-lg p-2 border border-border text-center">
+                                                        <p className="text-[8px] text-muted-foreground uppercase mb-0.5">Value</p>
+                                                        <p className="text-xs font-bold text-primary">
+                                                            ${insight.intrinsic_value?.final?.toFixed(1) || '---'}
+                                                        </p>
+                                                    </div>
+                                                    <div className="bg-background rounded-lg p-2 border border-border text-center">
+                                                        <p className="text-[8px] text-muted-foreground uppercase mb-0.5">MOS</p>
+                                                        <p className={`text-xs font-bold ${insight.margin_of_safety > 0 ? 'text-primary' : 'text-destructive'}`}>
+                                                            {insight.margin_of_safety?.toFixed(0)}%
+                                                        </p>
+                                                    </div>
+                                                    <div className="bg-background rounded-lg p-2 border border-border text-center">
+                                                        <p className="text-[8px] text-muted-foreground uppercase mb-0.5">Score</p>
+                                                        <p className="text-xs font-bold">{insight.quality_score}/5</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {savedAnalyses.length > 6 && (
+                            <p className="text-center text-[10px] text-muted-foreground mt-4">Showing most recent 6 analyses.</p>
+                        )}
+                    </section>
+
+                    {/* Saved Data View Modal */}
+                    {selectedSavedAnalysis && (
+                        <div className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="bg-card w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl shadow-2xl border border-border flex flex-col">
+                                <div className="p-5 border-b border-border sticky top-0 bg-card/95 backdrop-blur-sm flex justify-between items-center z-10">
+                                    <div>
+                                        <h2 className="text-xl font-bold flex items-center gap-2">
+                                            {selectedSavedAnalysis.ticker} Analysis
+                                        </h2>
+                                        <p className="text-xs text-muted-foreground">{selectedSavedAnalysis.name}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedSavedAnalysis(null)}
+                                        className="bg-muted hover:bg-muted/80 p-2 rounded-full transition-colors"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="p-5 space-y-6 text-foreground">
+                                    {(() => {
+                                        const insight = selectedSavedAnalysis.insights_data || selectedSavedAnalysis.insightsData;
+                                        if (!insight) return <p className="text-center text-muted-foreground py-8">No detailed data available.</p>;
+
+                                        return (
+                                            <div className="bg-gradient-to-br from-card to-card border border-primary/20 rounded-2xl p-5 relative overflow-hidden">
+                                                <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                                                <div className="flex items-center gap-2 mb-4">
+                                                    <BotIcon className="w-5 h-5 text-primary" />
+                                                    <h3 className="font-semibold text-lg">AI Value Analysis</h3>
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="bg-background rounded-xl p-3 border border-border">
+                                                            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                                                                <TrendingUp className="w-3 h-3 text-primary" /> Intrinsic Value
+                                                            </p>
+                                                            <p className="font-bold text-lg">
+                                                                ${insight.intrinsic_value?.final > 0 ? insight.intrinsic_value.final.toFixed(2) : "N/A"}
+                                                            </p>
+                                                            <p className={`text-xs mt-1 ${insight.margin_of_safety > 0 ? "text-primary" : "text-destructive"}`}>
+                                                                MOS: {insight.margin_of_safety?.toFixed(1)}%
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-background rounded-xl p-3 border border-border">
+                                                            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                                                                <Sparkles className="w-3 h-3 text-yellow-500" /> Quality Score
+                                                            </p>
+                                                            <div className="flex items-end gap-1">
+                                                                <p className="font-bold text-lg">{insight.quality_score}</p>
+                                                                <p className="text-xs text-muted-foreground pb-1">/ 5</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
+                                                        <div className="space-y-3 text-sm leading-relaxed">
+                                                            <p><span className="font-semibold text-primary">Takeaway:</span> {insight.takeaway}</p>
+                                                            <p><span className="font-semibold text-muted-foreground">Context:</span> {insight.context}</p>
+                                                        </div>
+                                                    </div>
+                                                    {insight.risk_flags && insight.risk_flags.length > 0 && (
+                                                        <div className="mt-3">
+                                                            <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1 mb-2">
+                                                                <AlertTriangle className="w-3 h-3 text-destructive" /> Identified Risks
+                                                            </h4>
+                                                            <ul className="space-y-1.5">
+                                                                {insight.risk_flags.map((flag: string, i: number) => (
+                                                                    <li key={i} className="text-xs text-destructive/90 flex items-start gap-1.5 bg-destructive/10 px-2.5 py-1.5 rounded-md">
+                                                                        <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                                                        <span>{flag}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </>
             ) : null}
         </div>
