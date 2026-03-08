@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, Suspense, useRef, Fragment } from "react";
-import { Plus, Loader2, Info, Edit2, Check, X, Trash2, LogOut, Settings, Download, FileText } from "lucide-react";
+import { Plus, Loader2, Info, Edit2, Check, X, Trash2, LogOut, Settings, Download, FileText, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
 import { useTranslation } from "@/lib/i18n";
@@ -577,8 +577,12 @@ function DashboardContent() {
                     <button
                       onClick={() => setActivePortfolioId(p.id)}
                       onDoubleClick={() => startRenamingTab(p.id, p.name)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 group ${activePortfolioId === p.id ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted/50 text-muted-foreground hover:bg-muted'}`}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 group ${p.id === 'watchlist'
+                        ? (activePortfolioId === p.id ? 'bg-[#ff8a00] text-white shadow-md' : 'bg-[#ff8a00]/10 text-[#ff8a00] hover:bg-[#ff8a00]/20 border border-[#ff8a00]/20')
+                        : (activePortfolioId === p.id ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted/50 text-muted-foreground hover:bg-muted')
+                        }`}
                     >
+                      {p.id === 'watchlist' && <Star size={14} className={activePortfolioId === p.id ? 'fill-white' : 'fill-[#ff8a00]'} />}
                       <span>{p.name}</span>
                       {activePortfolioId === p.id && (
                         <div className="flex items-center gap-1.5 ml-1">
