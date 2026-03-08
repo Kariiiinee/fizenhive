@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import YahooFinance from 'yahoo-finance2';
 
-const yahooFinance = new YahooFinance();
+const yf = new (YahooFinance as any)();
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -41,7 +41,17 @@ export async function GET(request: Request) {
         }
 
         const queryOptions = { period1: startDate.toISOString().split('T')[0], interval };
-        const chart = await yahooFinance.chart(symbol, queryOptions as any);
+        let chart: any;
+        try {
+            chart = await yf.chart(symbol, queryOptions as any, { validateResult: false });
+        } catch (error: any) {
+            if (error.result) {
+                console.warn('Chart validation failed but partial results available');
+                chart = error.result;
+            } else {
+                throw error;
+            }
+        }
 
         // Format data for Recharts
         const quotes: any[] = (chart?.quotes as any[]) || [];

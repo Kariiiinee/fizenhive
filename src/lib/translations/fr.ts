@@ -116,11 +116,15 @@ export const fr = {
                 label: "Volume",
                 def: "Nombre d'actions échangées sur une période donnée."
             }
-        }
+        },
+        noSavedAnalyses: "Aucune analyse enregistrée récemment."
     },
     screener: {
         title: "Screener",
         subtitle: "Filtrage des meilleures entreprises par capitalisation boursière par région pour des résultats de qualité.",
+        startTitle: "Les résultats du screening apparaîtront ici",
+        noResults: "Aucune action ne correspond à vos critères. Essayez d'ajuster les filtres.",
+        scanButton: "Scanner le Marché",
         allSectors: "Tous les secteurs",
         results: "Résultats",
         sector: "Secteur",
@@ -246,7 +250,8 @@ export const fr = {
             smallCaps: {
                 title: "Potentiel Caché Small-Cap",
                 description: "Actions < 1Md$ avec une croissance accélérée et une trésorerie solide.",
-                noneFound: "Aucune pépite small-cap identifiée. Essayez une autre région ou revenez plus tard."
+                noneFound: "Aucune pépite small-cap identifiée. Essayez une autre région ou revenez plus tard.",
+                explanation: "Cible les entreprises dont la capitalisation est inférieure à 1Md$, avec une croissance du chiffre d'affaires >15% et une réserve de trésorerie d'au moins 12 mois."
             },
             relativeOutliers: {
                 title: "Outliers de Classement Relatif",
@@ -255,15 +260,48 @@ export const fr = {
             },
             curiosity: {
                 title: "Radar de Curiosité",
-                description: "Anomalies hebdomadaires : pics de volume, rotations extrêmes et outliers."
+                description: "Anomalies hebdomadaires : pics de volume, rotations extrêmes et outliers.",
+                explanation: "Un ensemble de scans spécialisés conçus pour détecter les anomalies structurelles, les extrêmes de valorisation et les mouvements institutionnels.",
+                metrics: {
+                    evToEbitda: "Scanner de valeur profonde traditionnel. Entreprises ayant la valeur d'entreprise la plus basse par rapport aux bénéfices, signalant souvent un redressement ou un oubli du marché.",
+                    fcfYield: "Entreprises générant le plus de flux de trésorerie disponible par rapport à leur valeur de marché. Un rendement élevé indique un fort potentiel de dividende ou de réinvestissement.",
+                    growthUnder1B: "Étoiles de croissance émergente. Micro-caps avec une croissance agressive du chiffre d'affaires qui n'ont pas encore atteint les indices principaux.",
+                    laggards: "Identifier les opportunités de survente. Entreprises dont le cours de l'action s'est déconnecté de la performance opérationnelle, montrant une faiblesse extrême sur 6 mois.",
+                    insiderBuying: "Suivez l'argent intelligent. Met en avant les entreprises où les hauts dirigeants ou administrateurs ont personnellement acheté des actions sur le marché.",
+                    volumeSpikes: "Détection d'une accumulation ou distribution institutionnelle anormale. Volume relatif élevé par rapport à la moyenne des 30 derniers jours."
+                }
             },
             improvers: {
                 title: "Plus Grosses Améliorations (Delta)",
-                description: "Entreprises montrant la plus forte progression de score par rapport au scan précédent."
+                description: "Entreprises montrant la plus forte progression de score par rapport au scan précédent.",
+                explanation: "Identifie les entreprises présentant la plus forte progression positive de leur score de qualité global par rapport au scan précédent."
             },
             watchlist: {
                 title: "Suivi de Watchlist",
-                description: "Suivi persistant de vos intérêts découverts."
+                description: "Suivi persistant de vos intérêts découverts.",
+                explanation: "Surveillance persistante de vos candidats sélectionnés manuellement. Se met à jour automatiquement à chaque nouveau scan de découverte."
+            },
+            tooltips: {
+                methodology: "Méthodologie",
+                technicalDelta: "Delta Technique",
+                detectionLogic: "Logique de Détection",
+                tracking: "Suivi"
+            },
+            discoveryNote: {
+                title: "Note de découverte",
+                subtitle: "Présent dans plus de 2 zones",
+                explanation: "Signale les entreprises qui apparaissent simultanément dans plusieurs catégories analytiques, indiquant un changement structurel potentiel ou une déconnexion de valorisation à travers différents indicateurs.",
+                sections: {
+                    smallCaps: "Small Cap",
+                    outliers: "Outlier",
+                    improvers: "Amélioration",
+                    ev: "EV/EBITDA",
+                    fcf: "Rendement FCF",
+                    growth: "Croissance Micro-Cap",
+                    laggards: "Survendu",
+                    insider: "Achat d'Initié",
+                    volume: "Pic de Volume"
+                }
             }
         },
         metrics: {

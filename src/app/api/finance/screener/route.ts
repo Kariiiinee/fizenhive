@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import YahooFinance from 'yahoo-finance2';
 
-const yahooFinance = new YahooFinance();
+const yf = new (YahooFinance as any)();
 
 import { REGION_UNIVERSES } from '@/lib/constants';
 
@@ -37,9 +37,9 @@ export async function GET(request: Request) {
             try {
                 // We fetch historical data (for sparkline) and quoteSummary (for all key stats + sector)
                 const [history, qs, newsSearch] = await Promise.all([
-                    yahooFinance.historical(sym, { period1: start, period2: end, interval: '1d' }).catch(() => []),
-                    yahooFinance.quoteSummary(sym, { modules: ['price', 'assetProfile', 'defaultKeyStatistics', 'financialData', 'summaryDetail'] }).catch(() => null),
-                    yahooFinance.search(sym, { newsCount: 10 }).catch(() => ({ news: [] }))
+                    yf.historical(sym, { period1: start, period2: end, interval: '1d' }, { validateResult: false }).catch((err: any) => err.result || []),
+                    yf.quoteSummary(sym, { modules: ['price', 'assetProfile', 'defaultKeyStatistics', 'financialData', 'summaryDetail'] }, { validateResult: false }).catch((err: any) => err.result || null),
+                    yf.search(sym, { newsCount: 10 }, { validateResult: false }).catch((err: any) => err.result || { news: [] })
                 ]);
 
                 if (!qs || !qs.price) return null;

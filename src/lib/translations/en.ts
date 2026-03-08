@@ -116,11 +116,15 @@ export const en = {
                 label: "Volume",
                 def: "Number of shares traded in a given period."
             }
-        }
+        },
+        noSavedAnalyses: "No recently saved analyses."
     },
     screener: {
         title: "Screener",
         subtitle: "Screening the top companies by market cap per region for high-quality, liquid results.",
+        startTitle: "Screening results will appear here",
+        noResults: "No stocks match your criteria. Try adjusting filters.",
+        scanButton: "Scan Market",
         allSectors: "All Sectors",
         results: "Results",
         sector: "Sector",
@@ -246,7 +250,8 @@ export const en = {
             smallCaps: {
                 title: "Small Cap Hidden Potential",
                 description: "Stocks under $1B with accelerating growth and solid cash runway.",
-                noneFound: "No small cap gems identified in this scan. Try another region or check back later."
+                noneFound: "No small cap gems identified in this scan. Try another region or check back later.",
+                explanation: "Focuses on companies with a market cap under $1B, high revenue growth (>15%), and a cash runway of at least 12 months."
             },
             relativeOutliers: {
                 title: "Relative Ranking Outliers",
@@ -255,15 +260,48 @@ export const en = {
             },
             curiosity: {
                 title: "Curiosity Radar",
-                description: "Weekly anomalies: volume spikes, extreme rotations, and outliers."
+                description: "Weekly anomalies: volume spikes, extreme rotations, and outliers.",
+                explanation: "A set of specialized scans designed to catch structural anomalies, valuation extremes, and institutional movement.",
+                metrics: {
+                    evToEbitda: "Traditional deep value screen. Companies with the lowest Enterprise Value relative to Earnings, often signaling a turnaround or market oversight.",
+                    fcfYield: "Companies generating the most free cash flow relative to their market value. High yield indicates strong dividend potential or reinvestment capability.",
+                    growthUnder1B: "Early-stage growth stars. Micro-caps with aggressive TOP-line growth that haven't reached the mainstream indices yet.",
+                    laggards: "Identify oversold opportunities. Companies where the stock price has disconnected from operational performance, showing extreme 6-month weakness.",
+                    insiderBuying: "Follow the smart money. Highlights companies where top executives or directors have personally bought shares in the open market.",
+                    volumeSpikes: "Detection of abnormal institutional accumulation or distribution. High relative volume compared to the 30-day average."
+                }
             },
             improvers: {
                 title: "Biggest Improvers (Delta)",
-                description: "Companies showing the most significant score improvement vs previous scan."
+                description: "Companies showing the most significant score improvement vs previous scan.",
+                explanation: "Tracks companies with the largest positive change in their composite quality score compared to the previous scan."
             },
             watchlist: {
                 title: "Watchlist Tracker",
-                description: "Persistent tracking of your discovered interests."
+                description: "Persistent tracking of your discovered interests.",
+                explanation: "Persistent monitoring of your manually selected candidates. Updates automatically with each fresh discovery scan."
+            },
+            tooltips: {
+                methodology: "Methodology",
+                technicalDelta: "Technical Delta",
+                detectionLogic: "Detection Logic",
+                tracking: "Tracking"
+            },
+            discoveryNote: {
+                title: "Discovery note",
+                subtitle: "Found in more than 2 areas",
+                explanation: "Signals companies that appear simultaneously in multiple analytical categories, indicating a potential structural shift or valuation disconnect across different metrics.",
+                sections: {
+                    smallCaps: "Small Cap",
+                    outliers: "Outlier",
+                    improvers: "Improver",
+                    ev: "EV/EBITDA",
+                    fcf: "FCF Yield",
+                    growth: "Micro-Cap Growth",
+                    laggards: "Oversold",
+                    insider: "Insider Buying",
+                    volume: "Volume Spike"
+                }
             }
         },
         metrics: {

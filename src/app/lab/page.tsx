@@ -5,7 +5,8 @@ import {
     TrendingUp, Shield, Activity, Target, Search, Filter,
     ArrowUpRight, ArrowDownRight, Loader2, Globe, Boxes,
     Beaker, Zap, BarChart3, Star, Clock, Info,
-    Tag, Banknote, Rocket, TrendingDown, UserCheck, BarChart2
+    Tag, Banknote, Rocket, TrendingDown, UserCheck, BarChart2,
+    Building2, PieChart, X
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -40,7 +41,60 @@ export default function LabPage() {
     const [activeSection, setActiveSection] = useState("overview");
     const [showLimitModal, setShowLimitModal] = useState(false);
     const [showOutlierTooltip, setShowOutlierTooltip] = useState(false);
+    const [showSmallCapTooltip, setShowSmallCapTooltip] = useState(false);
+    const [showImproversTooltip, setShowImproversTooltip] = useState(false);
+    const [showCuriosityTooltip, setShowCuriosityTooltip] = useState(false);
+    const [showWatchlistTooltip, setShowWatchlistTooltip] = useState(false);
+    const [showDiscoveryTooltip, setShowDiscoveryTooltip] = useState(false);
+    const [activeRadarTooltip, setActiveRadarTooltip] = useState<string | null>(null);
     const [supabase] = useState(() => createClient());
+    const [watchlist, setWatchlist] = useState<any[]>([]);
+    const [isWatchlistLoading, setIsWatchlistLoading] = useState(true);
+
+    const fetchWatchlist = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+            const { data } = await supabase
+                .from('lab_watchlist')
+                .select('*')
+                .eq('user_id', user.id);
+            setWatchlist(data || []);
+        } else {
+            const local = localStorage.getItem('fizenhive_lab_watchlist');
+            setWatchlist(local ? JSON.parse(local) : []);
+        }
+        setIsWatchlistLoading(false);
+    };
+
+    const toggleWatchlist = async (ticker: string, name: string, tags: string[], extraData?: any) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        const exists = watchlist.find(item => item.ticker === ticker);
+
+        let newWatchlist;
+        if (exists) {
+            newWatchlist = watchlist.filter(item => item.ticker !== ticker);
+        } else {
+            newWatchlist = [...watchlist, { ticker, name, tags, ...extraData }];
+        }
+
+        // Optimistic update
+        setWatchlist(newWatchlist);
+
+        if (user) {
+            if (exists) {
+                await supabase.from('lab_watchlist').delete().eq('user_id', user.id).eq('ticker', ticker);
+            } else {
+                await supabase.from('lab_watchlist').insert({ user_id: user.id, ticker, name, tags, ...extraData });
+            }
+        } else {
+            localStorage.setItem('fizenhive_lab_watchlist', JSON.stringify(newWatchlist));
+        }
+    };
+
+    useEffect(() => {
+        fetchWatchlist();
+    }, []);
 
     const countries = Object.keys(REGION_UNIVERSES);
 
@@ -86,7 +140,7 @@ export default function LabPage() {
     };
 
     useEffect(() => {
-        fetchData(activeCountry);
+        setData(null);
     }, [activeCountry]);
 
     const sectionVariants = {
@@ -124,7 +178,10 @@ export default function LabPage() {
                         {countries.map(c => (
                             <button
                                 key={c}
-                                onClick={() => setActiveCountry(c)}
+                                onClick={() => {
+                                    setActiveCountry(c);
+                                    setData(null);
+                                }}
                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${activeCountry === c
                                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                                     : "bg-secondary/50 hover:bg-secondary border border-border/50"
@@ -136,7 +193,6 @@ export default function LabPage() {
                     </div>
                 </div>
 
-                {/* Background Decoration */}
                 <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-primary/10 rounded-full blur-[100px]" />
             </div>
 
@@ -173,14 +229,40 @@ export default function LabPage() {
                             <div className="mb-6">
                                 <h2 className="text-2xl font-bold flex items-center gap-2">
                                     <Boxes className="text-amber-500" />
-                                    {t('lab.sections.smallCaps.title')}
+                                    <span>{t('lab.sections.smallCaps.title')}</span>
+                                    <div className="group/info relative inline-block">
+                                        <Info
+                                            size={16}
+                                            className={`cursor-help transition-colors ${showSmallCapTooltip ? 'text-primary' : 'text-muted-foreground/50 hover:text-primary'}`}
+                                            onClick={() => setShowSmallCapTooltip(!showSmallCapTooltip)}
+                                        />
+                                        <div className={`absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[10px] leading-relaxed text-muted-foreground transition-all z-50 pointer-events-none ${showSmallCapTooltip
+                                            ? 'opacity-100 visible'
+                                            : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
+                                            }`}>
+                                            <p className="font-bold text-primary mb-1 uppercase tracking-tight">{t('lab.sections.tooltips.methodology')}</p>
+                                            {t('lab.sections.smallCaps.explanation')}
+                                        </div>
+                                    </div>
                                 </h2>
                                 <p className="text-muted-foreground">{t('lab.sections.smallCaps.description')}</p>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {data.smallCaps.length > 0 ? (
                                     data.smallCaps.map((stock, i) => (
-                                        <DiscoveryCard key={stock.ticker} stock={stock} type="small_cap" index={i} />
+                                        <DiscoveryCard
+                                            key={stock.ticker}
+                                            stock={stock}
+                                            type="small_cap"
+                                            index={i}
+                                            isWatched={watchlist.some(w => w.ticker === stock.ticker)}
+                                            onToggle={() => toggleWatchlist(stock.ticker, stock.name, ['Small Cap', 'Hidden Potential'], {
+                                                industry: stock.industry,
+                                                price: stock.price,
+                                                changePercent: stock.changePercent,
+                                                pe: stock.pe
+                                            })}
+                                        />
                                     ))
                                 ) : (
                                     <div className="col-span-full py-12 border-2 border-dashed border-border rounded-2xl bg-secondary/10 flex flex-col items-center justify-center text-center px-4">
@@ -206,8 +288,8 @@ export default function LabPage() {
                                             onClick={() => setShowOutlierTooltip(!showOutlierTooltip)}
                                         />
                                         <div className={`absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[10px] leading-relaxed text-muted-foreground transition-all z-50 pointer-events-none ${showOutlierTooltip
-                                                ? 'opacity-100 visible'
-                                                : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
+                                            ? 'opacity-100 visible'
+                                            : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
                                             }`}>
                                             <p className="font-bold text-primary mb-1 uppercase tracking-tight">Technical Methodology</p>
                                             {t('lab.sections.relativeOutliers.explanation')}
@@ -219,7 +301,19 @@ export default function LabPage() {
                             <div className="overflow-x-auto pb-4">
                                 <div className="flex gap-6 min-w-max">
                                     {data.rankings.filter(r => r.isTopDecile).map((stock, i) => (
-                                        <DiscoveryCard key={stock.ticker} stock={stock} type="outlier" index={i} />
+                                        <DiscoveryCard
+                                            key={stock.ticker}
+                                            stock={stock}
+                                            type="outlier"
+                                            index={i}
+                                            isWatched={watchlist.some(w => w.ticker === stock.ticker)}
+                                            onToggle={() => toggleWatchlist(stock.ticker, stock.name, ['Outlier', 'Top Decile'], {
+                                                industry: stock.industry,
+                                                price: stock.price,
+                                                changePercent: stock.changePercent,
+                                                pe: stock.pe
+                                            })}
+                                        />
                                     ))}
                                 </div>
                             </div>
@@ -230,7 +324,21 @@ export default function LabPage() {
                             <div className="mb-6">
                                 <h2 className="text-2xl font-bold flex items-center gap-2">
                                     <TrendingUp className="text-pink-500" />
-                                    {t('lab.sections.improvers.title')}
+                                    <span>{t('lab.sections.improvers.title')}</span>
+                                    <div className="group/info relative inline-block">
+                                        <Info
+                                            size={16}
+                                            className={`cursor-help transition-colors ${showImproversTooltip ? 'text-primary' : 'text-muted-foreground/50 hover:text-primary'}`}
+                                            onClick={() => setShowImproversTooltip(!showImproversTooltip)}
+                                        />
+                                        <div className={`absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[10px] leading-relaxed text-muted-foreground transition-all z-50 pointer-events-none ${showImproversTooltip
+                                            ? 'opacity-100 visible'
+                                            : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
+                                            }`}>
+                                            <p className="font-bold text-primary mb-1 uppercase tracking-tight">{t('lab.sections.tooltips.technicalDelta')}</p>
+                                            {t('lab.sections.improvers.explanation')}
+                                        </div>
+                                    </div>
                                 </h2>
                                 <p className="text-muted-foreground">{t('lab.sections.improvers.description')}</p>
                             </div>
@@ -253,8 +361,16 @@ export default function LabPage() {
                                                 <p className="font-bold">{(data.rankings.find(r => r.ticker === delta.ticker) as any)?.compositeScore}</p>
                                             </div>
                                             <div className="flex flex-col gap-1">
-                                                <button className="p-1.5 hover:bg-primary/10 rounded-full text-muted-foreground/40 hover:text-primary transition-colors">
-                                                    <Star size={14} />
+                                                <button
+                                                    onClick={() => toggleWatchlist(delta.ticker, delta.name, ['Improver', 'Technical Shift'], {
+                                                        industry: (delta as any).industry,
+                                                        price: (delta as any).price,
+                                                        changePercent: (delta as any).changePercent,
+                                                        pe: (delta as any).pe
+                                                    })}
+                                                    className={`p-1.5 hover:bg-primary/10 rounded-full transition-colors ${watchlist.some(w => w.ticker === delta.ticker) ? 'text-primary fill-primary' : 'text-muted-foreground/40 hover:text-primary'}`}
+                                                >
+                                                    <Star size={14} className={watchlist.some(w => w.ticker === delta.ticker) ? 'fill-primary' : ''} />
                                                 </button>
                                                 <Link href={`/analysis?symbol=${delta.ticker}`} className="p-1.5 hover:bg-primary/10 rounded-full text-muted-foreground/40 hover:text-primary transition-colors">
                                                     <ArrowUpRight size={14} />
@@ -271,31 +387,228 @@ export default function LabPage() {
                             <div className="mb-6">
                                 <h2 className="text-2xl font-bold flex items-center gap-2">
                                     <Activity className="text-emerald-500" />
-                                    {t('lab.sections.curiosity.title')}
+                                    <span>{t('lab.sections.curiosity.title')}</span>
+                                    <div className="group/info relative inline-block">
+                                        <Info
+                                            size={16}
+                                            className={`cursor-help transition-colors ${showCuriosityTooltip ? 'text-primary' : 'text-muted-foreground/50 hover:text-primary'}`}
+                                            onClick={() => setShowCuriosityTooltip(!showCuriosityTooltip)}
+                                        />
+                                        <div className={`absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[10px] leading-relaxed text-muted-foreground transition-all z-50 pointer-events-none ${showCuriosityTooltip
+                                            ? 'opacity-100 visible'
+                                            : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
+                                            }`}>
+                                            <p className="font-bold text-primary mb-1 uppercase tracking-tight">{t('lab.sections.tooltips.detectionLogic')}</p>
+                                            {t('lab.sections.curiosity.explanation')}
+                                        </div>
+                                    </div>
                                 </h2>
                                 <p className="text-muted-foreground mb-8">{t('lab.sections.curiosity.description')}</p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                <RadarList icon={Tag} title="Lowest EV/EBITDA" items={data.radar.cheapestEV} metric="evToEbitda" />
-                                <RadarList icon={Banknote} title="Highest FCF Yield" items={data.radar.highestFCF} metric="fcfYield" isPercent />
-                                <RadarList icon={Rocket} title="Growth Under $1B" items={data.radar.fastestGrowthSmallCap} metric="revGrowth" isPercent />
-                                <RadarList icon={TrendingDown} title="6-Month Laggards" items={data.radar.underperformers} metric="priceChange6m" isPercent />
-                                <RadarList icon={UserCheck} title="Insider Buying" items={data.radar.insiderBuying} metric="insiderBuying" isCompact />
-                                <RadarList icon={BarChart2} title="Volume Spikes" items={data.radar.volumeSpikes} metric="volumeSurge" />
+                                <RadarList
+                                    icon={Tag}
+                                    title="Lowest EV/EBITDA"
+                                    items={data.radar.cheapestEV}
+                                    metric="evToEbitda"
+                                    explanation={t('lab.sections.curiosity.metrics.evToEbitda')}
+                                    activeTooltip={activeRadarTooltip}
+                                    setActiveTooltip={setActiveRadarTooltip}
+                                    tooltipId="ev"
+                                    watchlist={watchlist}
+                                    onToggle={toggleWatchlist}
+                                />
+                                <RadarList
+                                    icon={Banknote}
+                                    title="Highest FCF Yield"
+                                    items={data.radar.highestFCF}
+                                    metric="fcfYield"
+                                    isPercent
+                                    explanation={t('lab.sections.curiosity.metrics.fcfYield')}
+                                    activeTooltip={activeRadarTooltip}
+                                    setActiveTooltip={setActiveRadarTooltip}
+                                    tooltipId="fcf"
+                                    watchlist={watchlist}
+                                    onToggle={toggleWatchlist}
+                                />
+                                <RadarList
+                                    icon={Rocket}
+                                    title="Growth Under $1B"
+                                    items={data.radar.fastestGrowthSmallCap}
+                                    metric="revGrowth"
+                                    isPercent
+                                    explanation={t('lab.sections.curiosity.metrics.growthUnder1B')}
+                                    activeTooltip={activeRadarTooltip}
+                                    setActiveTooltip={setActiveRadarTooltip}
+                                    tooltipId="growth"
+                                    watchlist={watchlist}
+                                    onToggle={toggleWatchlist}
+                                />
+                                <RadarList
+                                    icon={TrendingDown}
+                                    title="6-Month Laggards"
+                                    items={data.radar.underperformers}
+                                    metric="priceChange6m"
+                                    isPercent
+                                    explanation={t('lab.sections.curiosity.metrics.laggards')}
+                                    activeTooltip={activeRadarTooltip}
+                                    setActiveTooltip={setActiveRadarTooltip}
+                                    tooltipId="laggards"
+                                    watchlist={watchlist}
+                                    onToggle={toggleWatchlist}
+                                />
+                                <RadarList
+                                    icon={UserCheck}
+                                    title="Insider Buying"
+                                    items={data.radar.insiderBuying}
+                                    metric="insiderBuying"
+                                    isCompact
+                                    explanation={t('lab.sections.curiosity.metrics.insiderBuying')}
+                                    activeTooltip={activeRadarTooltip}
+                                    setActiveTooltip={setActiveRadarTooltip}
+                                    tooltipId="insider"
+                                    watchlist={watchlist}
+                                    onToggle={toggleWatchlist}
+                                />
+                                <RadarList
+                                    icon={BarChart2}
+                                    title="Volume Spikes"
+                                    items={data.radar.volumeSpikes}
+                                    metric="volumeSurge"
+                                    explanation={t('lab.sections.curiosity.metrics.volumeSpikes')}
+                                    activeTooltip={activeRadarTooltip}
+                                    setActiveTooltip={setActiveRadarTooltip}
+                                    tooltipId="volume"
+                                    watchlist={watchlist}
+                                    onToggle={toggleWatchlist}
+                                />
                             </div>
                         </section>
+
+                        {/* Discovery Analysis Logic */}
+                        {(() => {
+                            const stockMap: Record<string, { name: string, areas: string[], industry?: string, price?: number, changePercent?: number, pe?: number }> = {};
+
+                            const track = (items: any[], areaKey: string) => {
+                                items.forEach(item => {
+                                    if (!stockMap[item.ticker]) {
+                                        stockMap[item.ticker] = {
+                                            name: item.name,
+                                            areas: [],
+                                            industry: item.industry,
+                                            price: item.price,
+                                            changePercent: item.changePercent,
+                                            pe: item.pe
+                                        };
+                                    }
+                                    if (!stockMap[item.ticker].areas.includes(areaKey)) {
+                                        stockMap[item.ticker].areas.push(areaKey);
+                                    }
+                                });
+                            };
+
+                            track(data.smallCaps, 'smallCaps');
+                            track(data.rankings.filter(r => r.isTopDecile), 'outliers');
+                            track(data.deltas, 'improvers');
+                            track(data.radar.cheapestEV, 'ev');
+                            track(data.radar.highestFCF, 'fcf');
+                            track(data.radar.fastestGrowthSmallCap, 'growth');
+                            track(data.radar.underperformers, 'laggards');
+                            track(data.radar.insiderBuying, 'insider');
+                            track(data.radar.volumeSpikes, 'volume');
+
+                            const multiAreaStocks = Object.entries(stockMap)
+                                .filter(([_, info]) => info.areas.length > 2)
+                                .map(([ticker, info]) => ({ ticker, ...info as any }));
+
+                            if (multiAreaStocks.length === 0) return null;
+
+                            return (
+                                <section className="bg-primary/5 border border-primary/20 rounded-2xl p-6 relative group">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h2 className="text-xl font-bold text-primary flex items-center gap-2">
+                                                    <Zap size={20} className="fill-primary" />
+                                                    {t('lab.sections.discoveryNote.title')}
+                                                </h2>
+                                                <div className="group/info relative inline-block">
+                                                    <Info
+                                                        size={14}
+                                                        className={`cursor-help transition-colors ${showDiscoveryTooltip ? 'text-primary' : 'text-muted-foreground/30 hover:text-primary'}`}
+                                                        onClick={() => setShowDiscoveryTooltip(!showDiscoveryTooltip)}
+                                                    />
+                                                    <div className={`absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[10px] leading-relaxed text-muted-foreground transition-all z-50 pointer-events-none ${showDiscoveryTooltip
+                                                        ? 'opacity-100 visible'
+                                                        : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
+                                                        }`}>
+                                                        {t('lab.sections.discoveryNote.explanation')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p className="text-sm font-semibold text-muted-foreground">{t('lab.sections.discoveryNote.subtitle')}</p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-4">
+                                            {multiAreaStocks.map(stock => {
+                                                const isWatched = watchlist.some(w => w.ticker === stock.ticker);
+                                                return (
+                                                    <div key={stock.ticker} className="flex flex-col bg-background/50 border border-primary/10 rounded-lg p-2 px-3 hover:border-primary/30 transition-all relative pr-10">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-primary">{stock.ticker}</span>
+                                                            <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{stock.name}</span>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                            {stock.areas.map((area: string) => (
+                                                                <span key={area} className="text-[8px] bg-primary/10 text-primary px-1 whitespace-nowrap rounded font-bold uppercase tracking-tighter">
+                                                                    {t(`lab.sections.discoveryNote.sections.${area}`)}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => toggleWatchlist(stock.ticker, stock.name, ['Discovery Note', ...stock.areas])}
+                                                            className={`absolute top-1/2 -translate-y-1/2 right-2 p-1.5 hover:bg-primary/10 rounded-full transition-colors ${isWatched ? 'text-primary fill-primary' : 'text-muted-foreground/30 hover:text-primary'}`}
+                                                        >
+                                                            <Star size={14} className={isWatched ? 'fill-primary' : ''} />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-colors" />
+                                </section>
+                            );
+                        })()}
 
                         {/* Watchlist Section */}
                         <section className="bg-gradient-to-br from-primary/5 to-secondary/20 p-8 rounded-3xl border border-primary/10">
                             <div className="mb-8">
                                 <h2 className="text-2xl font-bold flex items-center gap-2">
                                     <Star className="text-primary fill-primary" />
-                                    {t('lab.sections.watchlist.title')}
+                                    <span>{t('lab.sections.watchlist.title')}</span>
+                                    <div className="group/info relative inline-block">
+                                        <Info
+                                            size={16}
+                                            className={`cursor-help transition-colors ${showWatchlistTooltip ? 'text-primary' : 'text-muted-foreground/50 hover:text-primary'}`}
+                                            onClick={() => setShowWatchlistTooltip(!showWatchlistTooltip)}
+                                        />
+                                        <div className={`absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[10px] leading-relaxed text-muted-foreground transition-all z-50 pointer-events-none ${showWatchlistTooltip
+                                            ? 'opacity-100 visible'
+                                            : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
+                                            }`}>
+                                            <p className="font-bold text-primary mb-1 uppercase tracking-tight">{t('lab.sections.tooltips.tracking')}</p>
+                                            {t('lab.sections.watchlist.explanation')}
+                                        </div>
+                                    </div>
                                 </h2>
                                 <p className="text-muted-foreground">{t('lab.sections.watchlist.description')}</p>
                             </div>
-                            <WatchlistTracker />
+                            <WatchlistTracker
+                                watchlist={watchlist}
+                                isLoading={isWatchlistLoading}
+                                onRemove={(ticker) => toggleWatchlist(ticker, '', [])}
+                            />
                         </section>
                     </div>
                 ) : (
@@ -311,58 +624,79 @@ export default function LabPage() {
     );
 }
 
-function WatchlistTracker() {
+function WatchlistTracker({ watchlist, isLoading, onRemove }: { watchlist: any[], isLoading: boolean, onRemove: (ticker: string) => void }) {
     const { t } = useTranslation();
-    const [watchlist, setWatchlist] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        // Mocking watchlist for now or fetching from Supabase if ready
-        const fetchWatchlist = async () => {
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-
-            if (user) {
-                const { data } = await supabase
-                    .from('lab_watchlist')
-                    .select('*, lab_stocks(*)')
-                    .eq('user_id', user.id);
-                setWatchlist(data || []);
-            } else {
-                // Guests use localStorage
-                const local = localStorage.getItem('fizenhive_lab_watchlist');
-                setWatchlist(local ? JSON.parse(local) : []);
-            }
-            setIsLoading(false);
-        };
-        fetchWatchlist();
-    }, []);
 
     if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>;
 
+    const formatVal = (val: any, isPercent: boolean = false) => {
+        if (val === null || val === undefined) return '-';
+        return isPercent ? `${val.toFixed(2)}%` : val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-3">
             {watchlist.length > 0 ? watchlist.map((item) => (
-                <div key={item.ticker} className="flex items-center justify-between p-4 bg-background/80 backdrop-blur rounded-2xl border border-border/40">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center font-bold text-primary">
+                <div key={item.ticker} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-background/80 backdrop-blur rounded-2xl border border-border/40 hover:border-primary/30 transition-all group gap-4">
+                    <div className="flex items-center gap-4 min-w-[200px]">
+                        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center font-bold text-primary shrink-0">
                             {item.ticker[0]}
                         </div>
-                        <div>
-                            <p className="font-bold">{item.ticker}</p>
-                            <div className="flex gap-1 mt-1">
-                                {(item.tags || []).map((tag: string) => (
-                                    <span key={tag} className="text-[9px] px-1.5 py-0.5 bg-secondary rounded text-muted-foreground font-medium">{tag}</span>
-                                ))}
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <p className="font-bold text-lg leading-none">{item.ticker}</p>
+                                <span className="text-[10px] text-muted-foreground truncate uppercase font-medium">{item.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                                <Building2 size={10} className="text-muted-foreground/50" />
+                                <p className="text-[10px] text-muted-foreground/70 truncate">{item.industry || "Unknown Industry"}</p>
                             </div>
                         </div>
                     </div>
-                    <Link href={`/analysis?symbol=${item.ticker}`} className="p-2 hover:bg-primary/10 rounded-full transition-colors">
-                        <ArrowUpRight size={20} className="text-primary" />
-                    </Link>
+
+                    <div className="grid grid-cols-3 md:flex md:items-center md:gap-8 flex-1">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mb-0.5">Price</span>
+                            <span className="font-mono text-sm">
+                                {item.price ? `$${formatVal(item.price)}` : '-'}
+                            </span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mb-0.5">24h Change</span>
+                            <span className={`font-mono text-sm flex items-center gap-1 ${item.changePercent > 0 ? 'text-emerald-500' : item.changePercent < 0 ? 'text-rose-500' : ''}`}>
+                                {item.changePercent > 0 && <ArrowUpRight size={12} />}
+                                {item.changePercent < 0 && <ArrowDownRight size={12} />}
+                                {formatVal(item.changePercent, true)}
+                            </span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mb-0.5">P/E Ratio</span>
+                            <span className="font-mono text-sm">
+                                {item.pe ? formatVal(item.pe) : 'N/A'}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                        <div className="flex gap-1 mr-2 invisible group-hover:visible transition-all">
+                            {(item.tags || []).slice(0, 2).map((tag: string) => (
+                                <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-secondary/50 rounded text-muted-foreground font-bold uppercase tracking-tight">{tag}</span>
+                            ))}
+                        </div>
+                        <Link href={`/analysis?symbol=${item.ticker}`} className="p-2.5 bg-primary/5 hover:bg-primary/20 rounded-xl transition-all border border-primary/10 hover:border-primary/40 text-primary">
+                            <ArrowUpRight size={18} />
+                        </Link>
+                        <button
+                            onClick={() => onRemove(item.ticker)}
+                            className="p-2.5 hover:bg-destructive/10 rounded-xl text-muted-foreground/30 hover:text-destructive transition-all border border-transparent hover:border-destructive/20"
+                            title="Remove from watchlist"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
                 </div>
             )) : (
-                <div className="lg:col-span-2 text-center py-12 border-2 border-dashed border-primary/20 rounded-2xl">
+                <div className="text-center py-12 border-2 border-dashed border-primary/20 rounded-2xl bg-secondary/5">
                     <p className="text-muted-foreground text-sm italic">Your watchlist is currently empty. Star stocks to track them here.</p>
                 </div>
             )}
@@ -370,7 +704,7 @@ function WatchlistTracker() {
     );
 }
 
-function DiscoveryCard({ stock, type, index }: { stock: any, type: string, index: number }) {
+function DiscoveryCard({ stock, type, index, isWatched, onToggle }: { stock: any, type: string, index: number, isWatched?: boolean, onToggle?: () => void }) {
     const { t } = useTranslation();
 
     return (
@@ -440,8 +774,11 @@ function DiscoveryCard({ stock, type, index }: { stock: any, type: string, index
                 <Link href={`/analysis?symbol=${stock.ticker}`} className="text-xs font-bold flex items-center gap-1 text-primary hover:underline">
                     Analyze Deeply <ArrowUpRight size={14} />
                 </Link>
-                <button className="p-2 hover:bg-primary/10 rounded-full text-muted-foreground hover:text-primary transition-colors">
-                    <Star size={18} />
+                <button
+                    onClick={onToggle}
+                    className={`p-2 hover:bg-primary/10 rounded-full transition-colors ${isWatched ? 'text-primary fill-primary' : 'text-muted-foreground hover:text-primary'}`}
+                >
+                    <Star size={18} className={isWatched ? 'fill-primary' : ''} />
                 </button>
             </div>
         </motion.div>
@@ -454,14 +791,26 @@ function RadarList({
     items,
     metric,
     isPercent,
-    isCompact
+    isCompact,
+    explanation,
+    activeTooltip,
+    setActiveTooltip,
+    tooltipId,
+    watchlist,
+    onToggle
 }: {
     title: string,
     icon: any,
     items: any[],
     metric?: string,
     isPercent?: boolean,
-    isCompact?: boolean
+    isCompact?: boolean,
+    explanation?: string,
+    activeTooltip?: string | null,
+    setActiveTooltip?: (id: string | null) => void,
+    tooltipId?: string,
+    watchlist?: any[],
+    onToggle?: (ticker: string, name: string, tags: string[], extraData?: any) => void
 }) {
     const formatValue = (val: any) => {
         if (val === null || val === undefined) return '-';
@@ -471,10 +820,30 @@ function RadarList({
         return val.toFixed(2);
     };
 
+    const isOpen = activeTooltip === tooltipId;
+
     return (
         <div className="p-1 px-0 border-border/10">
             <h3 className="font-bold mb-4 text-emerald-500/90 text-sm flex items-center justify-between">
-                <span className="flex items-center gap-2"><Icon size={16} /> {title}</span>
+                <span className="flex items-center gap-2">
+                    <Icon size={16} />
+                    {title}
+                    {explanation && (
+                        <div className="group/info relative inline-block">
+                            <Info
+                                size={12}
+                                className={`cursor-help transition-colors ${isOpen ? 'text-primary' : 'text-muted-foreground/30 hover:text-primary'}`}
+                                onClick={() => setActiveTooltip?.(isOpen ? null : (tooltipId || null))}
+                            />
+                            <div className={`absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[9px] leading-relaxed text-muted-foreground transition-all z-50 pointer-events-none normal-case font-medium ${isOpen
+                                ? 'opacity-100 visible'
+                                : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
+                                }`}>
+                                {explanation}
+                            </div>
+                        </div>
+                    )}
+                </span>
                 <span className="text-[10px] text-muted-foreground uppercase tracking-widest bg-secondary px-2 py-0.5 rounded">Top 10</span>
             </h3>
             <div className="space-y-1">
@@ -492,8 +861,16 @@ function RadarList({
                                 </span>
                             )}
                             <div className="flex items-center gap-1">
-                                <button className="p-1 hover:bg-primary/10 rounded-full text-muted-foreground/40 hover:text-primary transition-colors">
-                                    <Star size={12} />
+                                <button
+                                    onClick={() => onToggle?.(s.ticker, s.name, [title], {
+                                        industry: s.metrics.industry,
+                                        price: s.metrics.price,
+                                        changePercent: s.metrics.changePercent,
+                                        pe: s.metrics.pe
+                                    })}
+                                    className={`p-1 hover:bg-primary/10 rounded-full transition-colors ${watchlist?.some(w => w.ticker === s.ticker) ? 'text-primary' : 'text-muted-foreground/40 hover:text-primary'}`}
+                                >
+                                    <Star size={12} className={watchlist?.some(w => w.ticker === s.ticker) ? 'fill-primary' : ''} />
                                 </button>
                             </div>
                         </div>

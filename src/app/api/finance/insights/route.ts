@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
+import YahooFinance from 'yahoo-finance2';
 
 export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
-import YahooFinance from 'yahoo-finance2';
 
-const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+const yf = new (YahooFinance as any)();
 
 interface InsightsQuery {
     ticker: string;
@@ -18,14 +18,36 @@ interface InsightsQuery {
 // 1. Fetch Data
 async function fetchData(ticker: string) {
     try {
-        const quote = await yahooFinance.quote(ticker);
-        const quoteSummary = await yahooFinance.quoteSummary(ticker, {
-            modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail', 'price', 'earningsTrend', 'cashflowStatementHistory']
-        });
+        let quote: any;
+        try {
+            quote = await yf.quote(ticker, {}, { validateResult: false });
+        } catch (error: any) {
+            if (error.result) {
+                console.warn('Quote validation failed but partial results available');
+                quote = error.result;
+            } else {
+                throw error;
+            }
+        }
+
+        let quoteSummary: any;
+        try {
+            quoteSummary = await yf.quoteSummary(ticker, {
+                modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail', 'price', 'earningsTrend', 'cashflowStatementHistory']
+            }, { validateResult: false });
+        } catch (error: any) {
+            if (error.result) {
+                console.warn('QuoteSummary validation failed but partial results available');
+                quoteSummary = error.result;
+            } else {
+                throw error;
+            }
+        }
+
         return { quote, quoteSummary };
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Error fetching data for ${ticker}:`, error);
-        throw new Error(`Failed to fetch financial data for ${ticker}`);
+        throw new Error(error.message || `Failed to fetch financial data for ${ticker}`);
     }
 }
 

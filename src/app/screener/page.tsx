@@ -51,7 +51,8 @@ export default function ScreenerPage() {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isSectorOpen, setIsSectorOpen] = useState(false);
     const [results, setResults] = useState<StockResult[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hasStarted, setHasStarted] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [visibleCount, setVisibleCount] = useState(15);
     const [selectedStock, setSelectedStock] = useState<StockResult | null>(null);
@@ -101,33 +102,35 @@ export default function ScreenerPage() {
         }).format(number);
     };
 
+    const fetchResults = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user && isGuestLimitReached('screener')) {
+            setShowLimitModal(true);
+            setIsLoading(false);
+            return;
+        }
+
+        setIsLoading(true);
+        setHasStarted(true);
+        setError(null);
+        try {
+            const res = await fetch(`/api/finance/screener?region=${encodeURIComponent(activeRegion)}&filter=${encodeURIComponent(activeFilter)}&sector=${encodeURIComponent(activeSector)}`);
+            if (!res.ok) throw new Error("Failed to fetch data");
+            const data = await res.json();
+            setResults(data);
+            if (!user) incrementGuestUsage('screener');
+        } catch (err) {
+            console.error(err);
+            setError(t('common.error'));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchResults = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user && isGuestLimitReached('screener')) {
-                setShowLimitModal(true);
-                setIsLoading(false);
-                return;
-            }
-
-            setIsLoading(true);
-            setError(null);
-            try {
-                const res = await fetch(`/api/finance/screener?region=${encodeURIComponent(activeRegion)}&filter=${encodeURIComponent(activeFilter)}&sector=${encodeURIComponent(activeSector)}`);
-                if (!res.ok) throw new Error("Failed to fetch data");
-                const data = await res.json();
-                setResults(data);
-                if (!user) incrementGuestUsage('screener');
-            } catch (err) {
-                console.error(err);
-                setError(t('common.error'));
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchResults();
-        setVisibleCount(15); // Reset count when filters change
+        setResults([]);
+        setHasStarted(false);
+        setVisibleCount(15);
     }, [activeRegion, activeFilter, activeSector]);
 
     return (
@@ -245,9 +248,10 @@ export default function ScreenerPage() {
                 ></div>
             )}
 
-            {/* Active Filters Summary */}
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-2">
-                <span className="font-medium text-foreground bg-secondary px-2 py-1 rounded-md">{isLoading ? "..." : results.length} {t('screener.results')}</span>
+                <span className="font-medium text-foreground bg-secondary px-2 py-1 rounded-md">
+                    {isLoading ? "..." : results.length} {t('screener.results')}
+                </span>
                 <span className="bg-primary/10 text-primary px-2 py-1 rounded-md flex items-center gap-1"><Globe className="w-3 h-3" /> {regions.find(r => r.value === activeRegion)?.label || activeRegion}</span>
                 {activeSector !== "All Sectors" && (
                     <span className="bg-primary/10 text-primary px-2 py-1 rounded-md flex items-center gap-1"><Briefcase className="w-3 h-3" /> {sectors.find(s => s.value === activeSector)?.label || activeSector}</span>
@@ -267,116 +271,142 @@ export default function ScreenerPage() {
                 <div className="flex justify-center items-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
-            ) : (
+            ) : hasStarted ? (
                 <div className="space-y-3">
-                    {results.slice(0, visibleCount).map((stock) => (
-                        <div key={stock.ticker} className="bg-card border border-border rounded-xl p-4 flex gap-4 hover:border-primary/50 transition-colors">
-                            <div className="flex-1">
-                                <div className="flex justify-between items-center">
+                    {results.length > 0 ? (
+                        <>
+                            {results.slice(0, visibleCount).map((stock) => (
+                                <div key={stock.ticker} className="bg-card border border-border rounded-xl p-4 flex gap-4 hover:border-primary/50 transition-colors">
                                     <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <h4 className="font-semibold">{stock.ticker}</h4>
-                                            <Link
-                                                href={`/analysis?search=${encodeURIComponent(stock.ticker)}`}
-                                                className="group relative w-6 h-6 rounded-full bg-secondary hover:bg-primary/20 flex items-center justify-center text-foreground transition-colors"
-                                            >
-                                                <ChevronRight className="w-3 h-3 text-primary" />
-                                                <span className="absolute left-full ml-2 opacity-0 group-hover:opacity-100 transition-opacity bg-card border border-border text-foreground text-[10px] px-2 py-1 rounded-md whitespace-nowrap shadow-sm pointer-events-none z-10">
-                                                    {t('screener.sendForAi')}
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="font-semibold">{stock.ticker}</h4>
+                                                    <Link
+                                                        href={`/analysis?search=${encodeURIComponent(stock.ticker)}`}
+                                                        className="group relative w-6 h-6 rounded-full bg-secondary hover:bg-primary/20 flex items-center justify-center text-foreground transition-colors"
+                                                    >
+                                                        <ChevronRight className="w-3 h-3 text-primary" />
+                                                        <span className="absolute left-full ml-2 opacity-0 group-hover:opacity-100 transition-opacity bg-card border border-border text-foreground text-[10px] px-2 py-1 rounded-md whitespace-nowrap shadow-sm pointer-events-none z-10">
+                                                            {t('screener.sendForAi')}
+                                                        </span>
+                                                    </Link>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground line-clamp-1">{stock.name}</p>
+                                            </div>
+
+                                            {/* Middle Section: Sector */}
+                                            <div className="flex flex-1 justify-center">
+                                                {stock.sector && stock.sector !== 'Unknown' && (
+                                                    <span className="bg-secondary/50 text-muted-foreground px-2 py-0.5 rounded text-[10px] border border-border/50 text-center line-clamp-1">
+                                                        {stock.sector}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="text-right flex-1 flex flex-col items-end">
+                                                <div className="font-semibold text-lg">${stock.price.toFixed(2)}</div>
+                                                <div className={`flex justify-end items-center text-xs font-medium ${stock.isPositive ? 'text-primary' : 'text-destructive'}`}>
+                                                    {stock.isPositive ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
+                                                    {stock.change.toFixed(2)}%
+                                                </div>
+                                                {stock.scores && (
+                                                    <button
+                                                        onClick={() => setSelectedStock(stock)}
+                                                        className="mt-2 flex gap-1 items-center hover:opacity-80 transition-opacity"
+                                                        title={t('screener.viewDetails')}
+                                                    >
+                                                        <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-sm ${stock.scores.total >= 60 ? 'bg-primary text-primary-foreground' :
+                                                            stock.scores.total >= 45 ? 'bg-yellow-500 text-white' :
+                                                                'bg-muted text-muted-foreground'
+                                                            }`}>
+                                                            {stock.scores.total >= 60 ? t('screener.badges.check') : stock.scores.total >= 45 ? t('screener.badges.watch') : t('screener.badges.hold')}
+                                                        </div>
+                                                        <div className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-foreground font-medium border border-border flex items-center gap-1">
+                                                            S:{stock.scores.safety} M:{stock.scores.mispricing} N:{stock.scores.news >= 0 ? '+' : ''}{stock.scores.news}
+                                                            <Activity className="w-2 h-2 text-primary" />
+                                                        </div>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Key Statistics Inline (1-2 rows) */}
+                                        <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-4 md:grid-cols-8 gap-y-3 gap-x-2 text-[10px] sm:text-xs">
+                                            <div className="flex flex-col">
+                                                <span className="text-muted-foreground truncate">{t('screener.stats.marketCap')}</span>
+                                                <span className="font-medium truncate">{stock.marketCap ? formatCompactNumber(stock.marketCap) : '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-muted-foreground truncate">{t('screener.stats.volume')}</span>
+                                                <span className="font-medium truncate">{stock.volume ? formatCompactNumber(stock.volume) : '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-muted-foreground truncate">{t('screener.stats.pe')}</span>
+                                                <span className="font-medium truncate">{stock.pe ? stock.pe.toFixed(2) : '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-muted-foreground truncate">{t('screener.stats.dividend')}</span>
+                                                <span className="font-medium truncate">{stock.dividendYield ? `${stock.dividendYield.toFixed(2)}%` : '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-muted-foreground truncate">{t('screener.stats.revenueGrowth')}</span>
+                                                <span className="font-medium truncate">{stock.revenueGrowth !== null && stock.revenueGrowth !== undefined ? `${stock.revenueGrowth.toFixed(1)}%` : '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-muted-foreground truncate">{t('screener.stats.profitMargin')}</span>
+                                                <span className="font-medium truncate">{stock.profitMargin !== null && stock.profitMargin !== undefined ? `${stock.profitMargin.toFixed(1)}%` : '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-muted-foreground truncate">{t('screener.stats.debtToEquity')}</span>
+                                                <span className="font-medium truncate">{stock.debtToEquity !== null && stock.debtToEquity !== undefined ? stock.debtToEquity.toFixed(2) : '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-muted-foreground truncate">{t('screener.stats.fiftyTwoWeekChange')}</span>
+                                                <span className={`font-medium truncate ${stock.fiftyTwoWeekChange && stock.fiftyTwoWeekChange > 0 ? 'text-primary' : stock.fiftyTwoWeekChange && stock.fiftyTwoWeekChange < 0 ? 'text-destructive' : ''}`}>
+                                                    {stock.fiftyTwoWeekChange !== null && stock.fiftyTwoWeekChange !== undefined ? `${stock.fiftyTwoWeekChange > 0 ? '+' : ''}${stock.fiftyTwoWeekChange.toFixed(1)}%` : '-'}
                                                 </span>
-                                            </Link>
+                                            </div>
                                         </div>
-                                        <p className="text-xs text-muted-foreground line-clamp-1">{stock.name}</p>
-                                    </div>
-
-                                    {/* Middle Section: Sector */}
-                                    <div className="flex flex-1 justify-center">
-                                        {stock.sector && stock.sector !== 'Unknown' && (
-                                            <span className="bg-secondary/50 text-muted-foreground px-2 py-0.5 rounded text-[10px] border border-border/50 text-center line-clamp-1">
-                                                {stock.sector}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="text-right flex-1 flex flex-col items-end">
-                                        <div className="font-semibold text-lg">${stock.price.toFixed(2)}</div>
-                                        <div className={`flex justify-end items-center text-xs font-medium ${stock.isPositive ? 'text-primary' : 'text-destructive'}`}>
-                                            {stock.isPositive ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
-                                            {stock.change.toFixed(2)}%
-                                        </div>
-                                        {stock.scores && (
-                                            <button
-                                                onClick={() => setSelectedStock(stock)}
-                                                className="mt-2 flex gap-1 items-center hover:opacity-80 transition-opacity"
-                                                title={t('screener.viewDetails')}
-                                            >
-                                                <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-sm ${stock.scores.total >= 60 ? 'bg-primary text-primary-foreground' :
-                                                    stock.scores.total >= 45 ? 'bg-yellow-500 text-white' :
-                                                        'bg-muted text-muted-foreground'
-                                                    }`}>
-                                                    {stock.scores.total >= 60 ? t('screener.badges.check') : stock.scores.total >= 45 ? t('screener.badges.watch') : t('screener.badges.hold')}
-                                                </div>
-                                                <div className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-foreground font-medium border border-border flex items-center gap-1">
-                                                    S:{stock.scores.safety} M:{stock.scores.mispricing} N:{stock.scores.news >= 0 ? '+' : ''}{stock.scores.news}
-                                                    <Activity className="w-2 h-2 text-primary" />
-                                                </div>
-                                            </button>
-                                        )}
                                     </div>
                                 </div>
+                            ))}
 
-                                {/* Key Statistics Inline (1-2 rows) */}
-                                <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-4 md:grid-cols-8 gap-y-3 gap-x-2 text-[10px] sm:text-xs">
-                                    <div className="flex flex-col">
-                                        <span className="text-muted-foreground truncate">{t('screener.stats.marketCap')}</span>
-                                        <span className="font-medium truncate">{stock.marketCap ? formatCompactNumber(stock.marketCap) : '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-muted-foreground truncate">{t('screener.stats.volume')}</span>
-                                        <span className="font-medium truncate">{stock.volume ? formatCompactNumber(stock.volume) : '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-muted-foreground truncate">{t('screener.stats.pe')}</span>
-                                        <span className="font-medium truncate">{stock.pe ? stock.pe.toFixed(2) : '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-muted-foreground truncate">{t('screener.stats.dividend')}</span>
-                                        <span className="font-medium truncate">{stock.dividendYield ? `${stock.dividendYield.toFixed(2)}%` : '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-muted-foreground truncate">{t('screener.stats.revenueGrowth')}</span>
-                                        <span className="font-medium truncate">{stock.revenueGrowth !== null && stock.revenueGrowth !== undefined ? `${stock.revenueGrowth.toFixed(1)}%` : '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-muted-foreground truncate">{t('screener.stats.profitMargin')}</span>
-                                        <span className="font-medium truncate">{stock.profitMargin !== null && stock.profitMargin !== undefined ? `${stock.profitMargin.toFixed(1)}%` : '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-muted-foreground truncate">{t('screener.stats.debtToEquity')}</span>
-                                        <span className="font-medium truncate">{stock.debtToEquity !== null && stock.debtToEquity !== undefined ? stock.debtToEquity.toFixed(2) : '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-muted-foreground truncate">{t('screener.stats.fiftyTwoWeekChange')}</span>
-                                        <span className={`font-medium truncate ${stock.fiftyTwoWeekChange && stock.fiftyTwoWeekChange > 0 ? 'text-primary' : stock.fiftyTwoWeekChange && stock.fiftyTwoWeekChange < 0 ? 'text-destructive' : ''}`}>
-                                            {stock.fiftyTwoWeekChange !== null && stock.fiftyTwoWeekChange !== undefined ? `${stock.fiftyTwoWeekChange > 0 ? '+' : ''}${stock.fiftyTwoWeekChange.toFixed(1)}%` : '-'}
-                                        </span>
-                                    </div>
+                            {/* Load More Button */}
+                            {results.length > visibleCount && (
+                                <div className="flex justify-center pt-4">
+                                    <button
+                                        onClick={() => setVisibleCount(prev => prev + 15)}
+                                        className="px-6 py-2.5 bg-secondary hover:bg-secondary/80 text-foreground text-sm font-semibold rounded-xl border border-border shadow-sm transition-all"
+                                    >
+                                        {t('screener.loadMore')}
+                                    </button>
                                 </div>
-                            </div>
-                        </div>
-                    ))}
-
-                    {/* Load More Button */}
-                    {results.length > visibleCount && (
-                        <div className="flex justify-center pt-4">
+                            )}
+                        </>
+                    ) : (
+                        <div className="text-center py-20 bg-secondary/10 rounded-3xl border-2 border-dashed border-border px-6">
+                            <p className="text-muted-foreground mb-6">{t('screener.noResults')}</p>
                             <button
-                                onClick={() => setVisibleCount(prev => prev + 15)}
-                                className="px-6 py-2.5 bg-secondary hover:bg-secondary/80 text-foreground text-sm font-semibold rounded-xl border border-border shadow-sm transition-all"
+                                onClick={fetchResults}
+                                className="px-8 py-3 bg-primary text-primary-foreground rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 mx-auto active:scale-95 transition-all"
                             >
-                                {t('screener.loadMore')}
+                                <Target size={18} />
+                                {t('screener.scanButton')}
                             </button>
                         </div>
                     )}
+                </div>
+            ) : (
+                <div className="text-center py-20 bg-secondary/10 rounded-3xl border-2 border-dashed border-border px-6">
+                    <p className="text-muted-foreground mb-6 font-medium">{t('screener.startTitle')}</p>
+                    <button
+                        onClick={fetchResults}
+                        className="px-8 py-3 bg-primary text-primary-foreground rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 mx-auto active:scale-95 transition-all"
+                    >
+                        <Target size={18} />
+                        {t('screener.scanButton')}
+                    </button>
                 </div>
             )}
             {/* Score Detail Modal */}

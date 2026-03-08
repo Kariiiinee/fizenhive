@@ -9,6 +9,10 @@ export interface CuriosityStock {
         volumeSurge: number | null; // e.g., ratio of daily to avg volume
         insiderBuying: number | null; // net shares purchased by insiders
         marketCap: number;
+        price?: number | null;
+        changePercent?: number | null;
+        pe?: number | null;
+        industry?: string | null;
     };
 }
 

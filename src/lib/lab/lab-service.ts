@@ -5,13 +5,13 @@ import { CuriosityRadar, CuriosityStock, CuriosityLists } from './engines/curios
 import { ScoreDeltaEngine, DeltaResult } from './engines/delta-engine';
 import { createClient } from '@/lib/supabase/server';
 
-const yahooFinance = new YahooFinance();
+const yf = new (YahooFinance as any)();
 
 export interface LabDiscoveryOutput {
-    smallCaps: SmallCapResult[];
-    rankings: RankedStock[];
+    smallCaps: (SmallCapResult & { price?: number, changePercent?: number, pe?: number, industry?: string })[];
+    rankings: (RankedStock & { price?: number, changePercent?: number, pe?: number, industry?: string })[];
     radar: CuriosityLists;
-    deltas: DeltaResult[];
+    deltas: (DeltaResult & { price?: number, changePercent?: number, pe?: number, industry?: string })[];
     country: string;
     timestamp: string;
 }
@@ -40,18 +40,28 @@ export class LabService {
         const results = await Promise.all(tickers.map(async (ticker) => {
             try {
                 // Fetch full quote summary for engines
-                const qs = await yahooFinance.quoteSummary(ticker, {
-                    modules: ['price', 'financialData', 'defaultKeyStatistics', 'summaryDetail', 'assetProfile', 'incomeStatementHistory', 'cashflowStatementHistory', 'netSharePurchaseActivity' as any]
-                }).catch(() => null);
+                let qs: any;
+                try {
+                    qs = await yf.quoteSummary(ticker, {
+                        modules: ['price', 'financialData', 'defaultKeyStatistics', 'summaryDetail', 'assetProfile', 'incomeStatementHistory', 'cashflowStatementHistory', 'netSharePurchaseActivity' as any]
+                    }, { validateResult: false });
+                } catch (error: any) {
+                    qs = error.result || null;
+                }
 
                 if (!qs) return null;
 
                 // Extra data for engines
-                const history6m = await yahooFinance.historical(ticker, {
-                    period1: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
-                    period2: new Date(),
-                    interval: '1d'
-                }).catch(() => []);
+                let history6m: any = [];
+                try {
+                    history6m = await yf.historical(ticker, {
+                        period1: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
+                        period2: new Date(),
+                        interval: '1d'
+                    }, { validateResult: false });
+                } catch (error: any) {
+                    history6m = error.result || [];
+                }
 
                 let priceChange6m = null;
                 if (history6m.length >= 2) {
@@ -64,7 +74,14 @@ export class LabService {
                 const avgVol = qs.summaryDetail?.averageVolume || 1;
                 const volumeSurge = dailyVol / avgVol;
 
-                return { ticker, qs, extra: { priceChange6m, volumeSurge } };
+                const displayMetrics = {
+                    price: qs.price?.regularMarketPrice || undefined,
+                    changePercent: qs.price?.regularMarketChangePercent ? qs.price.regularMarketChangePercent * 100 : undefined,
+                    pe: qs.summaryDetail?.trailingPE || qs.summaryDetail?.forwardPE || undefined,
+                    industry: qs.assetProfile?.industry || undefined
+                };
+
+                return { ticker, qs, extra: { priceChange6m, volumeSurge, ...displayMetrics } };
             } catch (err) {
                 console.error(`LabService: Error fetching ${ticker}`, err);
                 return null;
@@ -77,7 +94,15 @@ export class LabService {
         const smallCaps: SmallCapResult[] = [];
         for (const r of validResults) {
             const sc = await iterativeSmallCapEngine.evaluate(r.ticker, r.qs);
-            if (sc) smallCaps.push(sc);
+            if (sc) {
+                smallCaps.push({
+                    ...sc,
+                    price: r.extra.price,
+                    changePercent: r.extra.changePercent,
+                    pe: r.extra.pe,
+                    industry: r.extra.industry
+                } as any);
+            }
         }
 
         // Assign ranks to small caps
@@ -110,12 +135,25 @@ export class LabService {
                 priceChange6m: r.extra.priceChange6m,
                 volumeSurge: r.extra.volumeSurge,
                 marketCap: r.qs.summaryDetail?.marketCap || r.qs.price?.marketCap || 0,
-                insiderBuying: (r.qs as any).netSharePurchaseActivity?.netInfoShares || null
+                insiderBuying: (r.qs as any).netSharePurchaseActivity?.netInfoShares || null,
+                price: r.extra.price,
+                changePercent: r.extra.changePercent,
+                pe: r.extra.pe,
+                industry: r.extra.industry
             }
         }));
 
         // 3. Execution
-        const rankings = this.rankingEngine.compute(rankable);
+        const rankings = this.rankingEngine.compute(rankable).map(rank => {
+            const orig = validResults.find(r => r.ticker === rank.ticker);
+            return {
+                ...rank,
+                price: orig?.extra.price,
+                changePercent: orig?.extra.changePercent,
+                pe: orig?.extra.pe,
+                industry: orig?.extra.industry
+            };
+        });
         const radar = this.radar.analyze(curiosityData);
 
         // 4. Persistence & Deltas (Supabase)
@@ -155,6 +193,10 @@ export class LabService {
                     );
                     delta.ticker = ranking.ticker;
                     delta.name = ranking.name;
+                    (delta as any).price = ranking.price;
+                    (delta as any).changePercent = ranking.changePercent;
+                    (delta as any).pe = ranking.pe;
+                    (delta as any).industry = ranking.industry;
                     deltas.push(delta);
                 }
 

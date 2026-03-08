@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import YahooFinance from 'yahoo-finance2';
 
 export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
-import yahooFinance from 'yahoo-finance2';
 
+const yf = new (YahooFinance as any)();
 
 // Helper to fetch live data if a ticker is detected
 async function fetchTickerContext(query: string) {
@@ -17,7 +18,17 @@ async function fetchTickerContext(query: string) {
         for (const ticker of possibleTickers.slice(0, 2)) { // max 2 tickers to prevent slow fetching
             try {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const quote = await yahooFinance.quote(ticker) as any;
+                let quote: any;
+                try {
+                    quote = await yf.quote(ticker, {}, { validateResult: false });
+                } catch (error: any) {
+                    if (error.result) {
+                        quote = error.result;
+                    } else {
+                        throw error;
+                    }
+                }
+
                 if (quote && quote.regularMarketPrice) {
                     contextData += `\nLatest data for ${ticker}: Price: $${quote.regularMarketPrice}, Market Cap: ${quote.marketCap}, PE: ${quote.trailingPE || 'N/A'}. `;
                     if (quote.quoteType === 'ETF') {
