@@ -40,7 +40,10 @@ function DashboardContent() {
   const [userId, setUserId] = useState<string | null>(null);
 
   // Portfolio Tabs
-  const [portfolios, setPortfolios] = useState<any[]>([{ id: 'Main', name: t('dashboard.mainPortfolio') }]);
+  const [portfolios, setPortfolios] = useState<any[]>([
+    { id: 'Main', name: t('dashboard.mainPortfolio') },
+    { id: 'watchlist', name: 'Watchlist' }
+  ]);
   const [activePortfolioId, setActivePortfolioId] = useState<string>('Main');
   const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState("");
@@ -54,7 +57,12 @@ function DashboardContent() {
 
     const savedTabs = localStorage.getItem('fizenhive_tabs');
     if (savedTabs) {
-      setPortfolios(JSON.parse(savedTabs));
+      const parsed = JSON.parse(savedTabs);
+      // Ensure watchlist is always present
+      if (!parsed.find((p: any) => p.id === 'watchlist')) {
+        parsed.push({ id: 'watchlist', name: 'Watchlist' });
+      }
+      setPortfolios(parsed);
     }
     checkUserAndLoadData(client);
   }, []);
@@ -500,7 +508,7 @@ function DashboardContent() {
                     onClick={() => setIsAdding(true)}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm w-full"
                   >
-                    <Plus className="w-4 h-4" /> {t('dashboard.addInvestment')}
+                    <Plus className="w-4 h-4" /> {activePortfolioId === 'watchlist' ? t('lab.sections.watchlist.title') || 'Add to Watchlist' : t('dashboard.addInvestment')}
                   </button>
                 ) : (
                   <div className="relative z-50 w-full">
@@ -574,16 +582,18 @@ function DashboardContent() {
                       <span>{p.name}</span>
                       {activePortfolioId === p.id && (
                         <div className="flex items-center gap-1.5 ml-1">
-                          {p.id !== 'Main' && (
+                          {p.id !== 'Main' && p.id !== 'watchlist' && (
                             <Edit2
                               onClick={(e) => { e.stopPropagation(); startRenamingTab(p.id, p.name); }}
                               className="w-3.5 h-3.5 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                             />
                           )}
-                          <Trash2
-                            onClick={(e) => { e.stopPropagation(); deletePortfolio(p.id); }}
-                            className="w-3.5 h-3.5 opacity-70 hover:opacity-100 transition-opacity cursor-pointer text-destructive/80 hover:text-destructive"
-                          />
+                          {p.id !== 'watchlist' && (
+                            <Trash2
+                              onClick={(e) => { e.stopPropagation(); deletePortfolio(p.id); }}
+                              className="w-3.5 h-3.5 opacity-70 hover:opacity-100 transition-opacity cursor-pointer text-destructive/80 hover:text-destructive"
+                            />
+                          )}
                         </div>
                       )}
                     </button>

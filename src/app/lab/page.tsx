@@ -56,18 +56,24 @@ export default function LabPage() {
 
         if (user) {
             const { data } = await supabase
-                .from('lab_watchlist')
+                .from('portfolio_holdings')
                 .select('*')
-                .eq('user_id', user.id);
+                .eq('user_id', user.id)
+                .eq('portfolio_id', 'watchlist');
             setWatchlist(data || []);
         } else {
-            const local = localStorage.getItem('fizenhive_lab_watchlist');
-            setWatchlist(local ? JSON.parse(local) : []);
+            const local = localStorage.getItem('fizenhive_portfolio_demo');
+            if (local) {
+                const folio = JSON.parse(local);
+                setWatchlist(folio.filter((h: any) => h.portfolio_id === 'watchlist'));
+            } else {
+                setWatchlist([]);
+            }
         }
         setIsWatchlistLoading(false);
     };
 
-    const toggleWatchlist = async (ticker: string, name: string, tags: string[], extraData?: any) => {
+    const toggleWatchlist = async (ticker: string, name: string, tags: string[], price?: number) => {
         const { data: { user } } = await supabase.auth.getUser();
         const exists = watchlist.find(item => item.ticker === ticker);
 
@@ -75,7 +81,7 @@ export default function LabPage() {
         if (exists) {
             newWatchlist = watchlist.filter(item => item.ticker !== ticker);
         } else {
-            newWatchlist = [...watchlist, { ticker, name, tags, ...extraData }];
+            newWatchlist = [...watchlist, { ticker, name, tags, price }];
         }
 
         // Optimistic update
@@ -83,11 +89,38 @@ export default function LabPage() {
 
         if (user) {
             if (exists) {
-                await supabase.from('lab_watchlist').delete().eq('user_id', user.id).eq('ticker', ticker);
+                await supabase.from('portfolio_holdings')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .eq('ticker', ticker)
+                    .eq('portfolio_id', 'watchlist');
             } else {
-                await supabase.from('lab_watchlist').insert({ user_id: user.id, ticker, name, tags, ...extraData });
+                await supabase.from('portfolio_holdings').insert({
+                    user_id: user.id,
+                    ticker,
+                    quantity: 0,
+                    buy_price: price || 0,
+                    portfolio_id: 'watchlist',
+                    date_bought: new Date().toISOString().split('T')[0]
+                });
             }
         } else {
+            const localPortfolio = localStorage.getItem('fizenhive_portfolio_demo');
+            let folio = localPortfolio ? JSON.parse(localPortfolio) : [];
+
+            if (exists) {
+                folio = folio.filter((h: any) => !(h.ticker === ticker && h.portfolio_id === 'watchlist'));
+            } else {
+                folio.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    ticker,
+                    quantity: 0,
+                    buy_price: price || 0,
+                    portfolio_id: 'watchlist',
+                    date_bought: new Date().toISOString().split('T')[0]
+                });
+            }
+            localStorage.setItem('fizenhive_portfolio_demo', JSON.stringify(folio));
             localStorage.setItem('fizenhive_lab_watchlist', JSON.stringify(newWatchlist));
         }
     };
@@ -256,12 +289,7 @@ export default function LabPage() {
                                             type="small_cap"
                                             index={i}
                                             isWatched={watchlist.some(w => w.ticker === stock.ticker)}
-                                            onToggle={() => toggleWatchlist(stock.ticker, stock.name, ['Small Cap', 'Hidden Potential'], {
-                                                industry: stock.industry,
-                                                price: stock.price,
-                                                changePercent: stock.changePercent,
-                                                pe: stock.pe
-                                            })}
+                                            onToggle={() => toggleWatchlist(stock.ticker, stock.name, ['Small Cap', 'Hidden Potential'], stock.price)}
                                         />
                                     ))
                                 ) : (
@@ -307,12 +335,7 @@ export default function LabPage() {
                                             type="outlier"
                                             index={i}
                                             isWatched={watchlist.some(w => w.ticker === stock.ticker)}
-                                            onToggle={() => toggleWatchlist(stock.ticker, stock.name, ['Outlier', 'Top Decile'], {
-                                                industry: stock.industry,
-                                                price: stock.price,
-                                                changePercent: stock.changePercent,
-                                                pe: stock.pe
-                                            })}
+                                            onToggle={() => toggleWatchlist(stock.ticker, stock.name, ['Outlier', 'Top Decile'], stock.price)}
                                         />
                                     ))}
                                 </div>
@@ -362,12 +385,7 @@ export default function LabPage() {
                                             </div>
                                             <div className="flex flex-col gap-1">
                                                 <button
-                                                    onClick={() => toggleWatchlist(delta.ticker, delta.name, ['Improver', 'Technical Shift'], {
-                                                        industry: (delta as any).industry,
-                                                        price: (delta as any).price,
-                                                        changePercent: (delta as any).changePercent,
-                                                        pe: (delta as any).pe
-                                                    })}
+                                                    onClick={() => toggleWatchlist(delta.ticker, delta.name, ['Improver', 'Technical Shift'], (delta as any).price)}
                                                     className={`p-1.5 hover:bg-primary/10 rounded-full transition-colors ${watchlist.some(w => w.ticker === delta.ticker) ? 'text-primary fill-primary' : 'text-muted-foreground/40 hover:text-primary'}`}
                                                 >
                                                     <Star size={14} className={watchlist.some(w => w.ticker === delta.ticker) ? 'fill-primary' : ''} />
@@ -566,7 +584,7 @@ export default function LabPage() {
                                                             ))}
                                                         </div>
                                                         <button
-                                                            onClick={() => toggleWatchlist(stock.ticker, stock.name, ['Discovery Note', ...stock.areas])}
+                                                            onClick={() => toggleWatchlist(stock.ticker, stock.name, ['Discovery Note', ...stock.areas], stock.price)}
                                                             className={`absolute top-1/2 -translate-y-1/2 right-2 p-1.5 hover:bg-primary/10 rounded-full transition-colors ${isWatched ? 'text-primary fill-primary' : 'text-muted-foreground/30 hover:text-primary'}`}
                                                         >
                                                             <Star size={14} className={isWatched ? 'fill-primary' : ''} />
@@ -581,35 +599,7 @@ export default function LabPage() {
                             );
                         })()}
 
-                        {/* Watchlist Section */}
-                        <section className="bg-gradient-to-br from-primary/5 to-secondary/20 p-8 rounded-3xl border border-primary/10">
-                            <div className="mb-8">
-                                <h2 className="text-2xl font-bold flex items-center gap-2">
-                                    <Star className="text-primary fill-primary" />
-                                    <span>{t('lab.sections.watchlist.title')}</span>
-                                    <div className="group/info relative inline-block">
-                                        <Info
-                                            size={16}
-                                            className={`cursor-help transition-colors ${showWatchlistTooltip ? 'text-primary' : 'text-muted-foreground/50 hover:text-primary'}`}
-                                            onClick={() => setShowWatchlistTooltip(!showWatchlistTooltip)}
-                                        />
-                                        <div className={`absolute left-0 bottom-full mb-2 w-64 p-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-xl text-[10px] leading-relaxed text-muted-foreground transition-all z-50 pointer-events-none ${showWatchlistTooltip
-                                            ? 'opacity-100 visible'
-                                            : 'opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible'
-                                            }`}>
-                                            <p className="font-bold text-primary mb-1 uppercase tracking-tight">{t('lab.sections.tooltips.tracking')}</p>
-                                            {t('lab.sections.watchlist.explanation')}
-                                        </div>
-                                    </div>
-                                </h2>
-                                <p className="text-muted-foreground">{t('lab.sections.watchlist.description')}</p>
-                            </div>
-                            <WatchlistTracker
-                                watchlist={watchlist}
-                                isLoading={isWatchlistLoading}
-                                onRemove={(ticker) => toggleWatchlist(ticker, '', [])}
-                            />
-                        </section>
+
                     </div>
                 ) : (
                     <div className="text-center py-20 bg-secondary/20 rounded-3xl border-2 border-dashed border-border">

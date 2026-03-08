@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SlidersHorizontal, ArrowUpRight, ArrowDownRight, Loader2, Globe, Briefcase, ChevronRight, X, CheckCircle2, AlertCircle, TrendingUp, Shield, Activity, Target } from "lucide-react";
+import { SlidersHorizontal, ArrowUpRight, ArrowDownRight, Loader2, Globe, Briefcase, ChevronRight, X, CheckCircle2, AlertCircle, TrendingUp, Shield, Activity, Target, Star } from "lucide-react";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
@@ -58,6 +58,67 @@ export default function ScreenerPage() {
     const [selectedStock, setSelectedStock] = useState<StockResult | null>(null);
     const [supabase] = useState(() => createClient());
     const [showLimitModal, setShowLimitModal] = useState(false);
+    const [watchlist, setWatchlist] = useState<string[]>([]);
+
+    const fetchWatchlist = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data } = await supabase.from('portfolio_holdings').select('ticker').eq('user_id', user.id).eq('portfolio_id', 'watchlist');
+            setWatchlist(data?.map(d => d.ticker) || []);
+        } else {
+            const local = localStorage.getItem('fizenhive_portfolio_demo');
+            if (local) {
+                const folio = JSON.parse(local);
+                setWatchlist(folio.filter((h: any) => h.portfolio_id === 'watchlist').map((h: any) => h.ticker));
+            }
+        }
+    };
+
+    const toggleWatchlist = async (ticker: string, price: number) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        const exists = watchlist.includes(ticker);
+
+        if (exists) {
+            setWatchlist(prev => prev.filter(t => t !== ticker));
+        } else {
+            setWatchlist(prev => [...prev, ticker]);
+        }
+
+        if (user) {
+            if (exists) {
+                await supabase.from('portfolio_holdings').delete().eq('user_id', user.id).eq('ticker', ticker).eq('portfolio_id', 'watchlist');
+            } else {
+                await supabase.from('portfolio_holdings').insert({
+                    user_id: user.id,
+                    ticker,
+                    quantity: 0,
+                    buy_price: price,
+                    portfolio_id: 'watchlist',
+                    date_bought: new Date().toISOString().split('T')[0]
+                });
+            }
+        } else {
+            const local = localStorage.getItem('fizenhive_portfolio_demo');
+            let folio = local ? JSON.parse(local) : [];
+            if (exists) {
+                folio = folio.filter((h: any) => !(h.ticker === ticker && h.portfolio_id === 'watchlist'));
+            } else {
+                folio.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    ticker,
+                    quantity: 0,
+                    buy_price: price,
+                    portfolio_id: 'watchlist',
+                    date_bought: new Date().toISOString().split('T')[0]
+                });
+            }
+            localStorage.setItem('fizenhive_portfolio_demo', JSON.stringify(folio));
+        }
+    };
+
+    useEffect(() => {
+        fetchWatchlist();
+    }, []);
 
     const regions = [
         { label: t('screener.regions.us'), value: "US" },
@@ -291,6 +352,13 @@ export default function ScreenerPage() {
                                                             {t('screener.sendForAi')}
                                                         </span>
                                                     </Link>
+                                                    <button
+                                                        onClick={() => toggleWatchlist(stock.ticker, stock.price)}
+                                                        className={`w-6 h-6 rounded-full bg-secondary hover:bg-primary/20 flex items-center justify-center transition-colors ${watchlist.includes(stock.ticker) ? 'text-primary' : 'text-muted-foreground'}`}
+                                                        title={t('lab.sections.watchlist.title') || "Toggle Watchlist"}
+                                                    >
+                                                        <Star className={`w-3 h-3 ${watchlist.includes(stock.ticker) ? 'fill-primary' : ''}`} />
+                                                    </button>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground line-clamp-1">{stock.name}</p>
                                             </div>
