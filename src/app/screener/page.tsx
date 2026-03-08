@@ -91,7 +91,7 @@ export default function ScreenerPage() {
                 await supabase.from('portfolio_holdings').insert({
                     user_id: user.id,
                     ticker,
-                    quantity: 0,
+                    quantity: 1,
                     buy_price: price,
                     portfolio_id: 'watchlist',
                     date_bought: new Date().toISOString().split('T')[0]
@@ -106,7 +106,7 @@ export default function ScreenerPage() {
                 folio.push({
                     id: Math.random().toString(36).substr(2, 9),
                     ticker,
-                    quantity: 0,
+                    quantity: 1,
                     buy_price: price,
                     portfolio_id: 'watchlist',
                     date_bought: new Date().toISOString().split('T')[0]

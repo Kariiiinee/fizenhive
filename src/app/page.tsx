@@ -195,7 +195,7 @@ function DashboardContent() {
           const { data: insertedData, error } = await supabase.from('portfolio_holdings').insert([{
             user_id: userId,
             ticker: symbol,
-            quantity: 10,
+            quantity: activePortfolioId === 'watchlist' ? 1 : 10,
             buy_price: current_price,
             price_aim: current_price * 1.2,
             portfolio_id: activePortfolioId,
